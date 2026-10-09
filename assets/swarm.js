@@ -736,6 +736,7 @@
     this.eyeAng = -Math.PI / 2; this.eyeLane = 4; this.eyeLock = 0; this.eyeWarn = 0;
     this.dim = 0; this.laneGlow = [0, 0, 0, 0, 0];
     this.haloSig = 0; this.haloSigCol = SIGNAL; this.bias = { bear: 0, bull: 0 };
+    this.vring = new VsaRing();
     this.notch = null; this.notchOn = false; this.crack = 0;
     this.lanePh = [0, 1.3, 2.6, 3.9, 5.2]; this.laneOm = [0, 0, 0, 0, 0];
     this.ringRot = [0, 0.4, 1.1]; this.ringOm = [0, 0, 0];
@@ -885,9 +886,11 @@
   Swarm.prototype.fire = function (agree) {
     this.haloSig = 1.6;
     this.haloSigCol = agree ? SIGNAL : WARN;
+    this.vring.fire(agree);
     if (!agree) { this.eyeWarn = Math.max(this.eyeWarn, 1.6); this.crack = Math.max(this.crack, 1.2); }
   };
   Swarm.prototype.vsa = function (f) {
+    this.vring.add(f);
     var k = TFS.indexOf(f.tf);
     if (k < 0) return;
     var s = clamp(f.strength | 0, 1, 3);
@@ -1178,8 +1181,8 @@
       rp.t += dt / (red ? 0.4 : 1.2);
       if (rp.t >= 1) { this.ripples.splice(ri, 1); continue; }
       var re = rp.t < 0.5 ? 4 * rp.t * rp.t * rp.t : 1 - Math.pow(-2 * rp.t + 2, 3) / 2;
-      var rrr = lerp(haloR, R * 0.07, re);
-      var rpa = Math.min(1, (1 - rp.t * 0.8) * (0.6 + rp.s * 0.2));
+      var rrr = lerp(haloR, haloR * 0.42, re);
+      var rpa = Math.min(1, (1 - rp.t) * (0.6 + rp.s * 0.2));
       var rcol = mix(PEARL, STAGE[rp.k], 0.7);
       var rn = phone ? 200 : 520;
       var cs = Math.cos(rp.seed), sn = Math.sin(rp.seed);
@@ -1194,14 +1197,14 @@
       if (this.notch == null) this.notch = ed.slice();
       for (var nk = -4; nk <= 4; nk++) { var nr = haloR + nk * 3.5; this._dp([this.notch[0] * nr, this.notch[1] * nr, this.notch[2] * nr], WARN, 0.95 - Math.abs(nk) * 0.08, 4.4); }
     } else this.notch = null;
-    for (var gi = this.glyphs.length - 1; gi >= 0; gi--) {
-      var gph = this.glyphs[gi];
-      gph.life -= dt / 9;
-      if (gph.life <= 0) { this.glyphs.splice(gi, 1); continue; }
-      var gr = haloR + 12, gp = [gph.d[0] * gr, gph.d[1] * gr, gph.d[2] * gr];
-      this._dp(gp, gph.dir === 'bear' ? STAGE[gph.k] : WARN, Math.min(1, gph.life * 1.4), 8);
-      this._dp(gp, WHITE, Math.min(0.9, gph.life), 2.6);
-    }
+    /* VSA advisory belt on the overseer shell (shared VsaRing: breathing, sweep, motes, glyphs, ripples) */
+    var self = this, vbR = haloR + 10;
+    var vLat = 0.42, vCr = vbR * Math.cos(vLat), vCy = -vbR * Math.sin(vLat);   /* a latitude crown on the lower overseer shell, clear of the orbit discs */
+    var vBelt = function (an, rf) { var rr = vCr * rf; return [Math.cos(an) * rr, vCy + Math.sin(an) * rr * 0.12, Math.sin(an) * rr]; };
+    this.vring.draw(dt, red, this.bias, {
+      k: phone ? 0.8 : 1.3, pt: vBelt,
+      emit: function (pp, c, al, sz) { self._dp(pp, c, Math.min(1.6, al * 1.9), sz * 1.3); }
+    });
     /* the eye: a star flare on the overseer with photon lens spikes (screen-space offsets), plus gaze / amber tether */
     var eyeCol = this.eyeWarn > 0 ? mix(PEARL, WARN, Math.min(1, this.eyeWarn * 1.5)) : (this.haloSig > 0 ? haloCol : PEARL);
     var E3 = [ed[0] * haloR, ed[1] * haloR, ed[2] * haloR];
@@ -1352,17 +1355,157 @@
       ctx.fillStyle = '#ffffff';
       ctx.fillText(Lb.t, lx, ly);
     }
+    var vn = this.vring.newest(red);   /* tiny label on the newest VSA finding, fading after a few seconds */
+    if (vn) {
+      var vp = project(V, vBelt(vn.a, 1)), vtw = ctx.measureText(vn.text).width + 14;
+      ctx.globalAlpha = vn.alpha;
+      ctx.drawImage(shade, vp[0] - vtw / 2 - 6, vp[1] - 30, vtw + 12, 24);
+      ctx.fillStyle = vn.dir === 'bull' ? '#ffe7a3' : '#ffffff';
+      ctx.fillText(vn.text, vp[0], vp[1] - 18);
+      ctx.globalAlpha = 1;
+    }
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     this.modeLabel = red ? 'Motion off' : this.scatter > 0.15 ? 'Planes tumbling' : mE > 0.5 ? 'Aligned · one disc' : 'Lanes · orbital planes';
     this.cpuMs = this.cpuMs * 0.9 + (performance.now() - t0) * 0.1;
   };
 
+  /* ---------- VSA advisory ring (shared by every look): alive but strictly advisory, never feeds the core ----------
+     A slow breathing glow, a radar-like sweep beam with a fading tail, motes drifting round the ring, and one glyph
+     per finding at its own angle (birth bloom then settle, brief pulse; Holmes 3-bar sequences as a 3-dot
+     constellation). CONFIRMS sends a pearl ripple inward that fades well before the core; CONTRADICTS flares amber
+     with a ring-wide shimmer and a short tremor. Brightness and tint follow the VSA bias (pearl supports the short,
+     amber leans against). At fire the ring flashes signal green if VSA agrees, or holds amber if it disagrees.
+     Each look supplies M.pt(angle, radiusFactor) -> point and M.emit(point, colour, alpha, size, trail). */
+  var VSA_AB = { bc: 'BC', sc: 'SC', sv: 'SV', so: 'SO', spring: 'SPRING', sos: 'SOS', sci2: 'SCI', utSign: 'UT', hut: 'HUT', nd: 'ND', ns: 'NS', test: 'TEST', evrUp: 'EVR UP', evrDn: 'EVR DN', bgw: 'BGW' };
+  function vsaShort(f) {
+    var tf = String(f.tf || '').replace('h', 'H');
+    var c = f.kind === 'seq' ? (f.code || 'SEQ') : f.kind === 'status' ? (f.code || '') + (f.dir === 'neutral' ? '' : ' ✓') : (VSA_AB[f.code] || String(f.code || f.name || '').toUpperCase().slice(0, 8));
+    return c + ' · ' + tf;
+  }
+  function VsaRing() {
+    this.g = []; this.rip = []; this.t = 0; this.sweep = 0.6; this.rot = 0;
+    this.shim = 0; this.trem = 0; this.fireT = 0; this.fireAgree = true; this.amberHold = 0;
+    this.sAmb = new Spring(0, 1.6); this.sLum = new Spring(0.8, 1.6);
+  }
+  VsaRing.prototype.add = function (f) {
+    if (f.dir !== 'bear' && f.dir !== 'bull') return;
+    /* each finding gets its own angle: golden-angle spacing, so consecutive glyphs never pile up */
+    this.nAdd = (this.nAdd || 0) + 1;
+    var a = 0.9 + this.nAdd * 2.39996;
+    var s = clamp(f.strength | 0, 1, 3);
+    this.g.push({ a: a, dir: f.dir, s: s, seq: f.kind === 'seq', born: this.t, life: 1, lab: vsaShort(f) });
+    if (this.g.length > 12) this.g.shift();
+    if (f.dir === 'bear') { this.rip.push({ a: a, t: 0, s: s }); if (this.rip.length > 4) this.rip.shift(); }
+    else { this.shim = 1; this.trem = 1; }
+  };
+  VsaRing.prototype.fire = function (agree) { this.fireT = 2.2; this.fireAgree = !!agree; if (!agree) this.amberHold = 5; };
+  VsaRing.prototype.calm = function () { this.rip.length = 0; this.shim = 0; this.trem = 0; this.fireT = 0; this.amberHold = 0; };
+  /* newest finding's tiny label: { a, text, alpha, dir } (angle in ring space incl. rotation) */
+  VsaRing.prototype.newest = function (red) {
+    var g = this.g[this.g.length - 1];
+    if (!g) return null;
+    var age = this.t - g.born, al = red ? 1 : age < 4 ? 1 : age < 6.5 ? 1 - (age - 4) / 2.5 : 0;
+    return al > 0.02 ? { a: g.a + this.rot, text: g.lab, alpha: al, dir: g.dir } : null;
+  };
+  VsaRing.prototype.draw = function (dt, red, bias, M) {
+    var adt = red ? 0 : dt, TAU = Math.PI * 2, i, a, p;
+    this.t += adt; this.rot += adt * 0.035; this.sweep += adt * 0.75;
+    var T = this.t;
+    if (red) this.calm();
+    var bsum = bias ? bias.bear + bias.bull : 0, amb = bsum > 0.15 ? bias.bull / bsum : 0, lumT = 0.72 + 0.5 * Math.min(1, bsum / 3);
+    if (this.amberHold > 0) { amb = Math.max(amb, 0.85); this.amberHold = Math.max(0, this.amberHold - dt); }
+    if (red) { this.sAmb.snap(amb); this.sLum.snap(lumT); }
+    amb = clamp(this.sAmb.step(amb, dt), 0, 1); var lum = clamp(this.sLum.step(lumT, dt), 0.5, 1.3);
+    this.shim = Math.max(0, this.shim - dt / 1.6); this.trem = Math.max(0, this.trem - dt / 0.9);
+    if (this.fireT > 0) this.fireT = Math.max(0, this.fireT - dt);
+    var fk = this.fireT > 0 ? Math.pow(this.fireT / 2.2, 1.4) : 0;
+    var tint = mix(PEARL, WARN, amb * 0.8);
+    if (fk > 0) tint = mix(tint, this.fireAgree ? SIGNAL_L : WARN, Math.min(1, fk * 1.4));
+    var breath = red ? 1 : 0.82 + 0.18 * Math.sin(T * 0.9);
+    var k = M.k || 1, nR = Math.round(300 * k);
+    /* ring dust: breathing, lit by the sweep, amber shimmer and tremor on a contradiction */
+    for (i = 0; i < nR; i++) {
+      var hi = (i * 0.61803) % 1;
+      a = i / nR * TAU + this.rot;
+      var behind = ((this.sweep - a) % TAU + TAU * 2) % TAU, lit = red ? 0 : behind < 1.4 ? Math.pow(1 - behind / 1.4, 2.2) : 0;
+      var h2 = (i * 0.3819 + 0.5) % 1, rf = 1 + (hi - 0.5) * 0.035 + (h2 - 0.5) * (h2 - 0.5) * (h2 > 0.5 ? 0.3 : -0.3) + this.trem * 0.028 * Math.sin(i * 7.3 + T * 46);
+      p = M.pt(a, rf); if (!p) continue;
+      var c = mix(tint, WHITE, lit * 0.45), sa = (0.26 + 0.1 * hi) * lum * breath * (1 + lit * 2.4) * (1 + fk * 1.6);
+      if (this.shim > 0) { var sw = this.shim * (0.5 + 0.5 * Math.sin(i * 0.9 - T * 14)); c = mix(c, WARN, sw); sa *= 1 + sw * 1.4; }
+      M.emit(p, c, sa, 2.0 + hi * 1.8, false);
+    }
+    /* soft breathing glow under the ring */
+    var nG = Math.round(48 * k);
+    for (i = 0; i < nG; i++) { a = i / nG * TAU + this.rot * 0.5; p = M.pt(a, 1); if (p) M.emit(p, tint, 0.06 * lum * breath * (1 + fk * 2), 30, false); }
+    if (!red) {
+      /* radar sweep: a bright head with a radial spoke of photons, leaving a fading trail */
+      var nS = Math.round(46 * k);
+      for (i = 0; i < nS; i++) {
+        var f2 = i / nS, as = this.sweep - f2 * 0.9;
+        p = M.pt(as, 1 + ((i * 7) % 5 - 2) * 0.006); if (p) M.emit(p, mix(WHITE, tint, f2), Math.pow(1 - f2, 2.2) * 0.65 * lum, 2.2 + (1 - f2) * 2.6, true);
+      }
+      /* radar fan: a soft wedge of photons just behind the head, fading with angle and toward the centre */
+      var nF = Math.round(22 * k);
+      for (i = 0; i < nF; i++) for (var fj = 0; fj < 6; fj++) {
+        var ff = i / nF, rfj = 0.72 + fj * 0.05; p = M.pt(this.sweep - ff * 0.55, rfj);
+        if (p) M.emit(p, mix(WHITE, tint, 0.4 + ff * 0.6), Math.pow(1 - ff, 2) * (0.05 + 0.04 * fj) * lum, 5, true);
+      }
+      for (i = 0; i < 12; i++) { var rr = 0.86 + i * 0.016; p = M.pt(this.sweep, rr); if (p) M.emit(p, mix(WHITE, tint, 0.3), (0.22 + 0.25 * (1 - Math.abs(rr - 1) * 6)) * lum, 2.4, true); }
+      /* motes drifting along the ring */
+      var nMo = Math.round(36 * k);
+      for (i = 0; i < nMo; i++) {
+        var hm = (i * 0.7548) % 1, am = i / nMo * TAU + T * (0.05 + 0.12 * hm) * (i % 3 ? 1 : -1);
+        p = M.pt(am, 1 + 0.05 * Math.sin(T * 0.7 + i * 2.1)); if (p) M.emit(p, mix(tint, WHITE, 0.5), (0.35 + 0.3 * Math.sin(T * (1.5 + hm * 2) + i)) * lum, 2.6 + hm * 1.8, true);
+      }
+    }
+    /* confirm ripples: pearl arcs travelling inward, gone by 0.4 of the radius (never reach the core) */
+    for (var ri = this.rip.length - 1; ri >= 0; ri--) {
+      var R0 = this.rip[ri]; R0.t += dt / 1.7;
+      if (R0.t >= 1) { this.rip.splice(ri, 1); continue; }
+      var e = 1 - Math.pow(1 - R0.t, 2), rf2 = 1 - 0.6 * e, ra = Math.pow(1 - R0.t, 1.6) * (0.55 + 0.15 * R0.s), span = 0.3 + 0.35 * e, nq = Math.round(56 * k);
+      for (i = 0; i < nq; i++) {
+        var q = i / (nq - 1) * 2 - 1;
+        p = M.pt(R0.a + this.rot + q * span, rf2 + 0.01 * Math.sin(i * 3.1)); if (p) M.emit(p, i % 4 ? PEARL : WHITE, ra * (1 - q * q * 0.7), 2.6, false);
+      }
+    }
+    /* glyphs */
+    for (var gi = 0; gi < this.g.length; gi++) {
+      var G = this.g[gi], age = red ? 99 : T - G.born;
+      G.life = Math.max(0.5, G.life - adt * 0.02);
+      var bloom = age < 1.0 ? 1 + 1.8 * Math.pow(1 - age, 2) : 1;
+      var pulse = age < 2.6 ? Math.max(0, Math.cos(age * TAU * 1.4)) * (1 - age / 2.6) : 0;
+      var ga = G.a + this.rot, gc = G.dir === 'bull' ? WARN : mix(PEARL, WHITE, 0.4);
+      if (fk > 0 && this.fireAgree && G.dir === 'bear') gc = mix(gc, SIGNAL_L, fk * 0.6);
+      var gb = (0.75 + 0.25 * G.s) * G.life * (1 + pulse * 0.8), gs = (0.75 + 0.25 * G.s) * bloom;
+      var pc = M.pt(ga, 1); if (!pc) continue;
+      M.emit(pc, gc, 0.22 * gb * (1 + (bloom - 1) * 1.5), 30 * gs, false);   /* soft halo */
+      if (G.seq) {   /* Holmes A-B-C sequence: three-dot constellation with faint photon links */
+        var D = [[-0.075, 1.0], [0, 1.075], [0.075, 1.0]];
+        for (var di = 0; di < 3; di++) {
+          var pd = M.pt(ga + D[di][0], D[di][1]); if (!pd) continue;
+          M.emit(pd, gc, Math.min(1.2, gb * 1.1), 5.5 * gs, false); M.emit(pd, WHITE, Math.min(1, gb * 0.8), 2.4, false);
+          if (di < 2) for (var lk = 1; lk < 4; lk++) { var u = lk / 4, pl = M.pt(ga + lerp(D[di][0], D[di + 1][0], u), lerp(D[di][1], D[di + 1][1], u)); if (pl) M.emit(pl, gc, gb * 0.35, 1.8, false); }
+        }
+      } else {
+        var nP = G.dir === 'bull' ? 10 : 8, sz = 0.03 + 0.008 * G.s;
+        for (i = 0; i < nP; i++) {
+          var ang = i / nP * TAU, pq;
+          if (G.dir === 'bull') pq = M.pt(ga + Math.cos(ang) * sz * bloom * 0.9, 1 + Math.sin(ang) * sz * 1.6 * bloom);
+          else { var dq = i % 2 ? 0.55 : 1; pq = M.pt(ga + Math.cos(ang) * sz * dq * bloom * 0.8, 1 + Math.sin(ang) * sz * dq * 2.0 * bloom); }
+          if (pq) M.emit(pq, gc, Math.min(1, gb * 0.85), 2.6, false);
+        }
+        M.emit(pc, gc, Math.min(1.3, gb * 1.2), (4 + 1.6 * G.s) * gs, false);
+        M.emit(pc, WHITE, Math.min(1, gb * 0.9), 2.4, false);
+      }
+      if (G.dir === 'bull' && age < 1.4) M.emit(pc, WARN, (1 - age / 1.4) * 0.6, 60 * (0.6 + 0.4 * (1 - age / 1.4)), false);   /* amber flare */
+    }
+  };
   global.Swarm = Swarm;
   /* shared kit for the alternate looks (assets/look-*.js) */
   global.SwarmKit = {
     HQ: HQ, Spring: Spring, COMP_FS: COMP_FS, destroy: Swarm.prototype.destroy, program: program, QVS: QVS, HASH: HASH, rng: rng, fib: fib, lerp: lerp, mix: mix, clamp: clamp, c01: c01,
     project: project, shadeSprite: shadeSprite, arcTarget: arcTarget, initInput: Swarm.prototype._initInput, orbitBy: Swarm.prototype.orbitBy,
     TFS: TFS, TFC: TFC, STAGE: STAGE, SIGNAL: SIGNAL, SIGNAL_L: SIGNAL_L, PEARL: PEARL, WARN: WARN, WHITE: WHITE, RED: RED, GOLD: GOLD,
-    STEP_ORBIT: STEP_ORBIT, STEP_RING: STEP_RING
+    STEP_ORBIT: STEP_ORBIT, STEP_RING: STEP_RING, VsaRing: VsaRing
   };
 })(window);

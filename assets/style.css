@@ -172,7 +172,7 @@ input[type=range]{accent-color:var(--accent);width:110px}
 .vsa-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;align-items:center;margin-bottom:10px}
 .biaslab{display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
 .biastrack{position:relative;height:10px;border-radius:99px;background:rgba(232,244,251,.07);border:1px solid var(--line2);overflow:hidden;margin:5px 0}
-.biastrack i{position:absolute;top:0;bottom:0;transition:width .4s ease}
+.biastrack i{position:absolute;top:0;bottom:0;transition:width .9s cubic-bezier(.22,.8,.25,1)}
 .biastrack i.bear{right:50%;background:linear-gradient(270deg,#ffffff,#cfe6f5);width:0}
 .biastrack i.bull{left:50%;background:linear-gradient(90deg,#ffe08a,var(--warn));width:0}
 .biastrack b{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:#fff}
@@ -555,3 +555,12 @@ input[type=number]{width:78px}
 @keyframes wmGlint{from{background-position:120% 0,0 0}to{background-position:-20% 0,0 0}}
 body.rm .wm b{animation:none!important}
 @media (prefers-reduced-motion:reduce){.wm b{animation:none!important}}
+
+/* VSA WATCHER panel: new findings slide in with a soft glow; the bias bar eases (above) */
+.vsafeed li.fresh{animation:vsaIn 1.4s cubic-bezier(.2,.8,.2,1) both}
+.vsafeed li.fresh.fbull{animation-name:vsaInAmber}
+@keyframes vsaIn{0%{opacity:0;transform:translateX(16px)}25%{opacity:1;transform:none;box-shadow:0 0 0 1px rgba(237,246,255,.45),0 0 18px rgba(237,246,255,.22)}100%{box-shadow:0 0 0 1px rgba(237,246,255,0),0 0 0 rgba(237,246,255,0)}}
+@keyframes vsaInAmber{0%{opacity:0;transform:translateX(16px)}25%{opacity:1;transform:none;box-shadow:0 0 0 1px rgba(255,204,51,.55),0 0 18px rgba(255,204,51,.25)}100%{box-shadow:0 0 0 1px rgba(255,204,51,0),0 0 0 rgba(255,204,51,0)}}
+@media (prefers-reduced-motion:reduce){.vsafeed li.fresh{animation:none}.biastrack i{transition:none}}
+body.rm .vsafeed li.fresh{animation:none}
+body.rm .biastrack i{transition:none}

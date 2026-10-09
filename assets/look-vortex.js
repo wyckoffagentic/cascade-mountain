@@ -46,7 +46,7 @@
     this.spin = [0, 1.1, 2.3, 3.1, 4.4]; this.prec = [0.3, 1.9, 3.7, 5.0, 0.9];
     this.flash = null; this.flashT = 0; this.flashCol = SIGNAL;
     this.shock = []; this.beam = 0; this.pulses = []; this.scatter = 0;
-    this.glyphs = []; this.scanA = 0.6; this.vsaRot = 0; this.ripV = [];
+    this.glyphs = []; this.scanA = 0.6; this.vsaRot = 0; this.ripV = []; this.vring = new K.VsaRing();
     this.haloSig = 0; this.haloSigCol = SIGNAL;
     this._t = 0; this._built = ''; this.counts = null;
     this.dT = new Float32Array(16000 * 10); this.nT = 0;
@@ -114,7 +114,7 @@
     if (kind === 'entry') { this.beam = 1; this.sPush.v += 8; }
     if (this.shock.length > 4) this.shock.shift();
   };
-  Vortex.prototype.fire = function (agree) { this.haloSig = 1.6; this.haloSigCol = agree ? SIGNAL : WARN; };
+  Vortex.prototype.fire = function (agree) { this.haloSig = 1.6; this.haloSigCol = agree ? SIGNAL : WARN; this.vring.fire(agree); };
   Vortex.prototype.vsa = function (f) {
     if (f.dir !== 'bear' && f.dir !== 'bull') return;
     var k = TFS.indexOf(f.tf);
@@ -125,6 +125,7 @@
     if (this.glyphs.length > 12) this.glyphs.shift();
     this.ripV.push({ a: this.scanA, t: 0, dir: f.dir });
     if (this.ripV.length > 4) this.ripV.shift();
+    this.vring.add(f);
   };
   Vortex.prototype._alTarget = function (k) {
     var s = this.step;
@@ -392,55 +393,12 @@
     this.vsaRot -= adt * 0.05;
     this.scanA += adt * 0.85;
     var vR = R * VSA_R, vY = R * VSA_Y;
-    var bsum = this.bias.bear + this.bias.bull, amb = bsum > 0.15 ? this.bias.bull / bsum : 0;
-    var dustC = mix(PEARL, WARN, amb * 0.5);
-    if (this.haloSig > 0) dustC = mix(dustC, this.haloSigCol, Math.min(1, this.haloSig) * 0.6);
-    var vs = this.P.vsa, nv = vs.length / 6;
-    for (i = 0; i < nv; i++) {
-      o = i * 6;
-      a = vs[o] + this.vsaRot;
-      var dsc = ((this.scanA - a) % (Math.PI * 2) + Math.PI * 4) % (Math.PI * 2);   /* angle behind the scan head */
-      var lit = dsc < 1.1 ? Math.pow(1 - dsc / 1.1, 2) : 0;
-      r = vR * (1 + vs[o + 1] * 0.022);
-      this._c1([Math.cos(a) * r, vY + vs[o + 2] * R * 0.008, Math.sin(a) * r], mix(dustC, WHITE, lit * 0.5), (0.30 + 0.08 * Math.sin(T * 1.3 + vs[o + 5])) * (1 + lit * 2.2), vs[o + 4]);
-    }
-    var nsc = this.counts.scan;
-    for (i = 0; i < nsc; i++) {
-      var f = i / nsc, as = this.scanA - f * 0.5;
-      var ri = vR * (1 + ((i * 7) % 9 - 4) * 0.009), yi = vY + ((i * 5) % 7 - 3) * R * 0.004;
-      this._c1([Math.cos(as) * ri, yi, Math.sin(as) * ri], mix(WHITE, dustC, f), Math.pow(1 - f, 2.4) * 0.5, 2.4 + (1 - f) * 2.4);
-    }
-    for (var gi = 0; gi < this.glyphs.length; gi++) {
-      var g = this.glyphs[gi];
-      g.life = Math.max(0.45, g.life - dt * 0.03);
-      var ga = g.a + this.vsaRot, age = T - g.born, pop = age < 0.6 ? 1 + 1.5 * (1 - age / 0.6) : 1;
-      var gc0 = [Math.cos(ga) * vR, vY, Math.sin(ga) * vR];
-      var tx = [-Math.sin(ga), 0, Math.cos(ga)];
-      var gs = R * (0.028 + 0.010 * g.s) * pop;
-      var col = g.dir === 'bull' ? WARN : mix(PEARL, TFC[g.k], 0.25);
-      var ga2 = g.life * (g.dir === 'bull' ? 1.0 : 0.85);
-      if (g.dir === 'bull') {
-        for (i = 0; i < 18; i++) { var ca = i / 18 * Math.PI * 2; this._c1([gc0[0] + tx[0] * Math.cos(ca) * gs, gc0[1] + Math.sin(ca) * gs, gc0[2] + tx[2] * Math.cos(ca) * gs], col, ga2 * 0.9, 3); }
-      } else {
-        for (i = 0; i < 16; i++) {
-          var qd = i / 16 * 4, side = Math.floor(qd), qf = qd - side;
-          var cx0 = [1, 0, -1, 0][side], cy0 = [0, 1, 0, -1][side], cx1 = [0, -1, 0, 1][side], cy1 = [1, 0, -1, 0][side];
-          var lx = lerp(cx0, cx1, qf) * gs * 0.8, ly = lerp(cy0, cy1, qf) * gs * 1.25;
-          this._c1([gc0[0] + tx[0] * lx, gc0[1] + ly, gc0[2] + tx[2] * lx], col, ga2 * 0.9, 3);
-        }
-      }
-      this._c1(gc0, col, ga2 * (1.1 + (pop - 1)), 6 + g.s * 1.5);
-    }
-    for (var vi = this.ripV.length - 1; vi >= 0; vi--) {
-      var rv = this.ripV[vi];
-      rv.t += dt / 1.4;
-      if (rv.t >= 1) { this.ripV.splice(vi, 1); continue; }
-      var spread = 0.05 + rv.t * 0.9, rcol = rv.dir === 'bull' ? WARN : PEARL;
-      for (i = 0; i < 60; i++) {
-        var sgn = i % 2 ? 1 : -1, ar = rv.a + sgn * spread * (0.9 + (i % 5) * 0.03);
-        this._c1([Math.cos(ar) * vR, vY, Math.sin(ar) * vR], rcol, Math.pow(1 - rv.t, 1.5) * 0.9, 3.4);
-      }
-    }
+    var self = this;
+    this.vring.draw(dt, red, this.bias, {
+      k: phone ? 1.2 : 2.2,
+      pt: function (an, rf) { return [Math.cos(an) * vR * rf, vY, Math.sin(an) * vR * rf]; },
+      emit: function (pp, c, al, sz, trail) { if (trail) self._t1(pp, c, al, sz); else self._c1(pp, c, al, sz); }
+    });
 
     /* ---- render ---- */
     var V = this._camera(dt, w, h, R);
@@ -500,11 +458,12 @@
     /* VSA ring caption on its left extreme, plus the newest finding near its glyph */
     var vl = project(V, [-vR * Math.cos(0.25), vY, vR * Math.sin(0.25)]);
     tag('VSA RING · ADVISORY', vl[0] - 4, vl[1] + 16, 'left', '#f4f8fb', true);
-    var gN = this.glyphs[this.glyphs.length - 1];
-    if (gN && T - gN.born < 9) {
-      var gpa = gN.a + this.vsaRot, gp = project(V, [Math.cos(gpa) * vR, vY, Math.sin(gpa) * vR]);
-      var gtxt = gN.name.toUpperCase().slice(0, 26) + ' · ' + TF_LAB[gN.k] + (gN.dir === 'bull' ? ' · CONTRADICTS' : ' · CONFIRMS');
-      tag(gtxt, gp[0], gp[1] - (phone ? 18 : 22), 'center', gN.dir === 'bull' ? '#ffe7a3' : '#ffffff', false, true);
+    var vn = this.vring.newest(red);   /* tiny label on the newest finding, fading after a few seconds */
+    if (vn) {
+      var gp = project(V, [Math.cos(vn.a) * vR, vY, Math.sin(vn.a) * vR]);
+      ctx.globalAlpha = vn.alpha;
+      tag(vn.text, gp[0], gp[1] - (phone ? 18 : 22), 'center', vn.dir === 'bull' ? '#ffe7a3' : '#ffffff', false, true);
+      ctx.globalAlpha = 1;
     }
     this.modeLabel = red ? 'Motion off' : sc > 0.15 ? 'Rings tumbling' : mE > 0.5 ? 'Roaring column · in trade' : armed ? 'Trigger armed' : 'Cascade vortex';
     this.cpuMs = this.cpuMs * 0.9 + (performance.now() - t0) * 0.1;

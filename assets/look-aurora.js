@@ -135,6 +135,7 @@
     this.step = 0; this.energyT = 0; this.mergeT = 0; this.bias = { bear: 0, bull: 0 };
     this.sEnergy = new Spring(0, 2.2); this.sMerge = new Spring(0, 4); this.sArc = new Spring(0, 3);
     this.sAl = [0, 1, 2, 3, 4].map(function () { return new Spring(0, 2.6); });
+    this.vring = new K.VsaRing();
     this.flash = null; this.flashT = 0; this.flashCol = SIGNAL; this.scatter = 0;
     this.shock = []; this.glyphs = []; this.ripV = []; this.scanA = 0.4;
     this.haloSig = 0; this.haloSigCol = SIGNAL;
@@ -157,7 +158,7 @@
     this.shock.push({ t: 0, col: col, big: kind === 'entry' });
     if (kind === 'invalid' || kind === 'loss') this.scatter = 1;
   };
-  Aurora.prototype.fire = function (agree) { this.haloSig = 1.6; this.haloSigCol = agree ? SIGNAL : WARN; };
+  Aurora.prototype.fire = function (agree) { this.haloSig = 1.6; this.haloSigCol = agree ? SIGNAL : WARN; this.vring.fire(agree); };
   Aurora.prototype.vsa = function (f) {
     if (!f || (f.dir !== 'bear' && f.dir !== 'bull')) return;
     var k = Math.max(0, ['4h', '2h', '30m', '15m', '5m'].indexOf(f.tf));
@@ -166,6 +167,7 @@
     this.glyphs.push({ a: ga, dir: f.dir, k: k, s: clamp(f.strength | 0, 1, 3), born: this._t, life: 1, label: f.label || f.name || '' });
     if (this.glyphs.length > 9) this.glyphs.shift();
     this.ripV.push({ a: ga, t: 0, dir: f.dir });
+    this.vring.add(f);
   };
   Aurora.prototype._t1 = function (x, y, c, a, s) { if (this.nT < 9000 && a > 0.003) push(this.dT, this.nT++, x, y, c, a, s, this._w, this._h); };
   Aurora.prototype._c1 = function (x, y, c, a, s) { if (this.nC < 9000 && a > 0.003) push(this.dC, this.nC++, x, y, c, a, s, this._w, this._h); };
@@ -318,44 +320,12 @@
     /* VSA ring (advisory, separate): pearl photons lying on the lake, a sweeping scan, a glyph per finding */
     this.scanA += adt * 0.8;
     var hyPx = h - hy * h, vRx = w * (phone ? 0.44 : 0.40), vRy = h * (phone ? 0.05 : 0.07), vCy = hyPx + vRy * 0.15;
-    var bsum = this.bias.bear + this.bias.bull, amb = bsum > 0.15 ? this.bias.bull / bsum : 0;
-    var dustC = mix(PEARL, WARN, amb * 0.5);
-    if (this.haloSig > 0) dustC = mix(dustC, this.haloSigCol, Math.min(1, this.haloSig) * 0.6);
-    var nV = red ? 260 : phone ? 420 : 820;
-    for (i = 0; i < nV; i++) {
-      var av = i / nV * Math.PI * 2 + hsh(i) * 0.01;
-      var dsc = ((this.scanA - av) % (Math.PI * 2) + Math.PI * 4) % (Math.PI * 2);
-      var lit = dsc < 1.0 ? Math.pow(1 - dsc / 1.0, 2) : 0;
-      var front = Math.sin(av) > 0 ? 1 : 0.55;
-      var jr = 1 + (hsh(i * 1.3) - 0.5) * 0.03;
-      this._c1(w / 2 + Math.cos(av) * vRx * jr, vCy + Math.sin(av) * vRy * jr, mix(dustC, WHITE, lit * 0.5), (0.16 + 0.05 * Math.sin(T * 1.3 + i)) * front * (1 + lit * 2.4), 2 + hsh(i * 2.1) * 1.6);
-    }
-    var glyphPos = [];
-    for (var gi = 0; gi < this.glyphs.length; gi++) {
-      var g = this.glyphs[gi];
-      g.life = Math.max(0.45, g.life - dt * 0.03);
-      var age = T - g.born, pop = age < 0.6 ? 1 + 1.4 * (1 - age / 0.6) : 1;
-      var gx = w / 2 + Math.cos(g.a) * vRx, gy = vCy + Math.sin(g.a) * vRy;
-      var gcol = g.dir === 'bull' ? WARN : mix(PEARL, TFC[g.k], 0.25), gs = (6 + 2 * g.s) * pop, ga2 = g.life;
-      if (g.dir === 'bull') for (i = 0; i < 16; i++) { var ca = i / 16 * Math.PI * 2; this._c1(gx + Math.cos(ca) * gs, gy + Math.sin(ca) * gs * 0.8, gcol, ga2 * 0.9, 2.6); }
-      else for (i = 0; i < 16; i++) {
-        var qd = i / 16 * 4, side = Math.floor(qd), qf = qd - side;
-        var x0 = [1, 0, -1, 0][side], y0 = [0, 1, 0, -1][side], x1 = [0, -1, 0, 1][side], y1 = [1, 0, -1, 0][side];
-        this._c1(gx + lerp(x0, x1, qf) * gs * 0.8, gy + lerp(y0, y1, qf) * gs * 1.2, gcol, ga2 * 0.9, 2.6);
-      }
-      this._c1(gx, gy, gcol, ga2 * (1 + (pop - 1)), 5 + g.s * 1.5);
-      glyphPos.push([gx, gy, g]);
-    }
-    for (var vi = this.ripV.length - 1; vi >= 0; vi--) {
-      var rv = this.ripV[vi];
-      rv.t += dt / 1.4;
-      if (rv.t >= 1) { this.ripV.splice(vi, 1); continue; }
-      var spread = 0.05 + rv.t * 0.9, rcol = rv.dir === 'bull' ? WARN : PEARL;
-      for (i = 0; i < 50; i++) {
-        var ar = rv.a + (i % 2 ? 1 : -1) * spread * (0.9 + (i % 5) * 0.03);
-        this._c1(w / 2 + Math.cos(ar) * vRx, vCy + Math.sin(ar) * vRy, rcol, Math.pow(1 - rv.t, 1.5) * 0.8, 3);
-      }
-    }
+    var self = this, glyphPos = [];
+    this.vring.draw(dt, red, this.bias, {
+      k: phone ? 1.1 : 2,
+      pt: function (an, rf) { return [w / 2 + Math.cos(an) * vRx * rf, vCy + Math.sin(an) * vRy * rf, Math.sin(an) > 0 ? 1 : 0.75]; },
+      emit: function (pp, c, al, sz, trail) { if (trail) self._t1(pp[0], pp[1], c, al * pp[2], sz); else self._c1(pp[0], pp[1], c, al * pp[2], sz); }
+    });
     this.counts = { motes: mcount, total: this.nT + this.nC };
 
     /* ---- render ---- */
@@ -436,9 +406,11 @@
     }
     if (!phone || hot > 0.02 || this.step >= 6) tag(hot > 0.02 ? 'IN TRADE · ' + Math.round(this.energyT * 100) + ' energy' : this.step >= 6 ? 'TRIGGER ARMED' : 'DECISION', cpx, cpy - (phone ? 26 : 34), 'center', hot > 0.02 || this.step >= 6 ? '#c9ffdc' : '#ffffff', true);
     tag(phone ? 'VSA · advisory' : 'VSA WATCHER · advisory ring', w / 2, phone ? vCy - vRy - 12 : vCy + vRy + 18, 'center', '#f2f6ff', false);
-    for (var gq = glyphPos.length - 1; gq >= Math.max(0, glyphPos.length - 3); gq--) {
-      var G = glyphPos[gq], gt = (G[2].dir === 'bull' ? 'contradicts' : 'confirms');
-      tag(gt, G[0], G[1] - 16, 'center', G[2].dir === 'bull' ? '#ffe7a3' : '#ffffff', false, true);
+    var vn = this.vring.newest(red);   /* tiny label on the newest finding, fading after a few seconds */
+    if (vn) {
+      ctx.globalAlpha = vn.alpha;
+      tag(vn.text, w / 2 + Math.cos(vn.a) * vRx, vCy + Math.sin(vn.a) * vRy - 18, 'center', vn.dir === 'bull' ? '#ffe7a3' : '#ffffff', false, true);
+      ctx.globalAlpha = 1;
     }
     this.modeLabel = red ? 'Motion off' : this.scatter > 0.15 ? 'Curtains scattering' : hot > 0.3 ? 'Aurora blazing · in trade' : this.step >= 6 ? 'Aurora surging · armed' : this.step >= 3 ? 'Aurora building' : 'Aurora · scanning';
     this.cpuMs = this.cpuMs * 0.9 + (performance.now() - t0) * 0.1;

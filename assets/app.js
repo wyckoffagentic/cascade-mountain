@@ -40,6 +40,7 @@
   var watcher = null;
   var vsaSilent = true;
   var vsaFeed = [];
+  var vsaFresh = {};   /* finding id -> time it arrived live (panel slide-in/glow only) */
   var lastVsa = { bear: null, bull: null };
   var warnShown = {};
   var shown = { ripples: 0, contra: 0 };
@@ -65,6 +66,7 @@
     if (vsaFeed.length > 60) vsaFeed.length = 60;
     if (f.dir === 'bear' || f.dir === 'bull') lastVsa[f.dir] = f;
     if (vsaSilent) return;
+    vsaFresh[f.id] = performance.now();
     if (f.inst !== focusInst().spec.id) return;
     if (f.dir === 'bear') shown.ripples++; else if (f.dir === 'bull') shown.contra++;
     swarm.vsa(f);
@@ -528,7 +530,8 @@
       var tag = f.dir === 'bear' ? '<span class="tag bear">CONFIRMS SHORT</span>' : f.dir === 'bull' ? '<span class="tag bull">CONTRADICTS SHORT</span>' : '<span class="tag neu">NEUTRAL</span>';
       var who = f.inst === 'nasdaq' ? 'Nasdaq (sim)' : 'Gold (sim)';
       var str = '<span class="str">' + '●●●'.slice(0, f.strength) + '○○○'.slice(0, 3 - f.strength) + '</span>';
-      return '<li><span class="t">' + DMF.fmtZone(f.closeT, 'syd').clock + '</span><span class="tf" style="--c:' + tfColor(f.tf) + '">' + f.tf.toUpperCase() + '</span>' +
+      var fr = vsaFresh[f.id] && performance.now() - vsaFresh[f.id] < 1600 ? ' class="fresh ' + (f.dir === 'bull' ? 'fbull' : 'fbear') + '"' : '';
+      return '<li' + fr + '><span class="t">' + DMF.fmtZone(f.closeT, 'syd').clock + '</span><span class="tf" style="--c:' + tfColor(f.tf) + '">' + f.tf.toUpperCase() + '</span>' +
         '<span class="what"><b>' + escapeHtml(f.name) + '</b> ' + str + '<small>' + who + ' · ' + escapeHtml(f.read) + '</small></span>' + tag + '</li>';
     }).join('');
     var feed = $('vsaFeed');
