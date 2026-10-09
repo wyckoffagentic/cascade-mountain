@@ -321,11 +321,9 @@
     this.scanA += adt * 0.8;
     var hyPx = h - hy * h, vRx = w * (phone ? 0.44 : 0.40), vRy = h * (phone ? 0.05 : 0.07), vCy = hyPx + vRy * 0.15;
     var self = this, glyphPos = [];
-    this.vring.draw(dt, red, this.bias, {
-      k: phone ? 1.1 : 2,
-      pt: function (an, rf) { return [w / 2 + Math.cos(an) * vRx * rf, vCy + Math.sin(an) * vRy * rf, Math.sin(an) > 0 ? 1 : 0.75]; },
-      emit: function (pp, c, al, sz, trail) { if (trail) self._t1(pp[0], pp[1], c, al * pp[2], sz); else self._c1(pp[0], pp[1], c, al * pp[2], sz); }
-    });
+    /* the VSA ring is its own object: a tilted gyre hovering above the lake (not lying on it) */
+    var vG = { cx: w / 2, cy: hyPx - h * (phone ? 0.04 : 0.05), rx: w * (phone ? 0.44 : 0.34), ry: h * (phone ? 0.042 : 0.058), tilt: -0.1, k: phone ? 1.1 : 1.8 };
+    this.vring.screen(dt, red, this.bias, vG, function (x, y, c, al, sz, trail) { if (trail) self._t1(x, y, c, al, sz); else self._c1(x, y, c, al, sz); });
     this.counts = { motes: mcount, total: this.nT + this.nC };
 
     /* ---- render ---- */
@@ -405,11 +403,13 @@
       tag(TF_LAB[k] + (phone ? (L.on ? ' ✓' : '') : L.on ? ' · aligned' : ' · waiting'), L.x, L.y, L.x > w - 60 ? 'right' : 'center', hex, L.on);
     }
     if (!phone || hot > 0.02 || this.step >= 6) tag(hot > 0.02 ? 'IN TRADE · ' + Math.round(this.energyT * 100) + ' energy' : this.step >= 6 ? 'TRIGGER ARMED' : 'DECISION', cpx, cpy - (phone ? 26 : 34), 'center', hot > 0.02 || this.step >= 6 ? '#c9ffdc' : '#ffffff', true);
-    tag(phone ? 'VSA · advisory' : 'VSA WATCHER · advisory ring', w / 2, phone ? vCy - vRy - 12 : vCy + vRy + 18, 'center', '#f2f6ff', false);
+    var vlp = this.vring.labelAt();   /* permanent label at the VSA ring's left end */
+    tag('VSA · advisory', vlp[0] - 10, vlp[1] + 20, 'left', '#f4f8fb', true);
     var vn = this.vring.newest(red);   /* tiny label on the newest finding, fading after a few seconds */
     if (vn) {
       ctx.globalAlpha = vn.alpha;
-      tag(vn.text, w / 2 + Math.cos(vn.a) * vRx, vCy + Math.sin(vn.a) * vRy - 18, 'center', vn.dir === 'bull' ? '#ffe7a3' : '#ffffff', false, true);
+      var vnp = this.vring._pt(vn.a, 1);
+      tag(vn.text, vnp[0], vnp[1] - 18, 'center', vn.dir === 'bull' ? '#ffe7a3' : '#ffffff', false, true);
       ctx.globalAlpha = 1;
     }
     this.modeLabel = red ? 'Motion off' : this.scatter > 0.15 ? 'Curtains scattering' : hot > 0.3 ? 'Aurora blazing · in trade' : this.step >= 6 ? 'Aurora surging · armed' : this.step >= 3 ? 'Aurora building' : 'Aurora · scanning';

@@ -884,32 +884,10 @@
     if (this.shock.length > 4) this.shock.shift();
   };
   Swarm.prototype.fire = function (agree) {
-    this.haloSig = 1.6;
-    this.haloSigCol = agree ? SIGNAL : WARN;
-    this.vring.fire(agree);
-    if (!agree) { this.eyeWarn = Math.max(this.eyeWarn, 1.6); this.crack = Math.max(this.crack, 1.2); }
+    this.vring.fire(agree);   /* the VSA verdict at fire lives on the VSA ring only; the overseer shell stays ambient */
   };
   Swarm.prototype.vsa = function (f) {
-    this.vring.add(f);
-    var k = TFS.indexOf(f.tf);
-    if (k < 0) return;
-    var s = clamp(f.strength | 0, 1, 3);
-    var ed = this._eyeDir();
-    if (f.dir === 'bear') {
-      this.ripples.push({ t: 0, s: s, k: k, seed: (this.ripples.length * 1.7 + k) % 6.28 });
-      if (this.ripples.length > 6) this.ripples.shift();
-      this.laneGlow[k] = Math.max(this.laneGlow[k], 0.45 + s * 0.2);
-      this.glyphs.push({ d: ed, life: 1, dir: 'bear', k: k });
-      this.eyeLane = k;
-    } else if (f.dir === 'bull') {
-      this.eyeLane = k;
-      this.eyeLock = 1.4 + s * 0.6;
-      this.eyeWarn = Math.max(this.eyeWarn, 1.2 + s * 0.4);
-      this.crack = Math.max(this.crack, 0.8 + s * 0.3);
-      if (s >= 2) this.dim = 1;
-      this.glyphs.push({ d: ed, life: 1, dir: 'bull', k: k });
-    }
-    if (this.glyphs.length > 14) this.glyphs.shift();
+    this.vring.add(f);   /* findings live only on the VSA ring (no shell tint, eye warn, tether, crack, dim or lane glow) */
   };
   Swarm.prototype._eyeDir = function () {
     var lat = 0.42 * Math.sin(this.eyeAng * 0.7);
@@ -991,7 +969,7 @@
       this.bristleT = model.bristle || 0;
       this.mergeT = model.merged ? 1 : 0;
       if (model.bias) this.bias = model.bias;
-      this.notchOn = !!model.vsaWarn;
+      this.notchOn = false;   /* VSA warnings show on the VSA ring (amber hold), not as a shell notch */
       var ns = clamp(model.step | 0, 0, 7);
       if (ns > this.step) this.stepFlash = 1;
       this.step = ns;
@@ -1130,8 +1108,8 @@
     var haloCol = PEARL;
     if (this.haloSig > 0) haloCol = mix(PEARL, this.haloSigCol, Math.min(1, this.haloSig));
     var bsum = this.bias.bear + this.bias.bull;
-    var amberShare = bsum > 0.15 ? this.bias.bull / bsum : 0;
-    var hA = (0.75 + 0.3 * Math.min(1, bsum / 3)) * (this.boost ? 1.25 : 1);
+    var amberShare = 0;   /* ambient dust shell: no VSA bias tint (the VSA ring carries it) */
+    var hA = 0.75 * (this.boost ? 1.25 : 1);
     var ed = this._eyeDir();
     var cp = red ? 0 : Math.max(0, Math.sin(this._pulseT)) * (0.04 + E * 0.12);
     var flashK = this.flashT > 0 ? Math.pow(Math.min(1, this.flashT / 1.1), 2.2) : 0;
@@ -1197,14 +1175,6 @@
       if (this.notch == null) this.notch = ed.slice();
       for (var nk = -4; nk <= 4; nk++) { var nr = haloR + nk * 3.5; this._dp([this.notch[0] * nr, this.notch[1] * nr, this.notch[2] * nr], WARN, 0.95 - Math.abs(nk) * 0.08, 4.4); }
     } else this.notch = null;
-    /* VSA advisory belt on the overseer shell (shared VsaRing: breathing, sweep, motes, glyphs, ripples) */
-    var self = this, vbR = haloR + 10;
-    var vLat = 0.42, vCr = vbR * Math.cos(vLat), vCy = -vbR * Math.sin(vLat);   /* a latitude crown on the lower overseer shell, clear of the orbit discs */
-    var vBelt = function (an, rf) { var rr = vCr * rf; return [Math.cos(an) * rr, vCy + Math.sin(an) * rr * 0.12, Math.sin(an) * rr]; };
-    this.vring.draw(dt, red, this.bias, {
-      k: phone ? 0.8 : 1.3, pt: vBelt,
-      emit: function (pp, c, al, sz) { self._dp(pp, c, Math.min(1.6, al * 1.9), sz * 1.3); }
-    });
     /* the eye: a star flare on the overseer with photon lens spikes (screen-space offsets), plus gaze / amber tether */
     var eyeCol = this.eyeWarn > 0 ? mix(PEARL, WARN, Math.min(1, this.eyeWarn * 1.5)) : (this.haloSig > 0 ? haloCol : PEARL);
     var E3 = [ed[0] * haloR, ed[1] * haloR, ed[2] * haloR];
@@ -1260,6 +1230,12 @@
     V.dpr = dpr; V.maxW = phone ? 26 : 40;
     /* optional orbit centre offset for asymmetric layouts: data-cx / data-cy as fractions of the stage */
     V.ox = ((+canvas.dataset.cx || 0.5) - 0.5) * w + (phone && !canvas.dataset.cx ? 22 : 0); V.oy = -((+canvas.dataset.cy || 0.5) - 0.5) * h;
+    /* ---- VSA ring: its own tilted gyre floating outside the overseer shell (dark gap between), photons only ---- */
+    var self = this, c0s = project(V, [0, 0, 0]), shR = haloR * c0s[2];
+    var vrx = Math.min(shR * 1.42 + 26, w * 0.485);
+    var vG = { cx: clamp(c0s[0], vrx + 6, Math.max(vrx + 6, w - vrx - 6)), cy: c0s[1] + shR * 0.06, rx: vrx, ry: vrx * 0.2, tilt: -0.1, k: phone ? 1.0 : 1.5 };
+    var kInv = 1 / c0s[2];
+    this.vring.screen(dt, red, this.bias, vG, function (x, y, c, al, sz) { self._dp([0, 0, 0], c, Math.min(1.8, al * (sz < 4 ? 4.6 : 2.6)), Math.max(sz, 3.4) * kInv * 1.8, x - c0s[0], c0s[1] - y); });
     var keep = red ? 0 : clamp(0.74 + 0.1 * E + 0.04 * tight, 0, 0.9);
     var post = {
       keep: keep, thr: 0.85, knee: 0.5, time: T,
@@ -1355,9 +1331,14 @@
       ctx.fillStyle = '#ffffff';
       ctx.fillText(Lb.t, lx, ly);
     }
-    var vn = this.vring.newest(red);   /* tiny label on the newest VSA finding, fading after a few seconds */
+    /* VSA ring: permanent label at its left end, plus a tiny fading tag on the newest finding */
+    var vlp = this.vring.labelAt(), vlt = 'VSA · advisory', vlw = ctx.measureText(vlt).width + 14;
+    var vlx = clamp(vlp[0] + vlw / 2 - 10, vlw / 2 + 6, w - vlw / 2 - 6), vly = vlp[1] + 22;
+    ctx.drawImage(shade, vlx - vlw / 2 - 6, vly - 12, vlw + 12, 24);
+    ctx.fillStyle = '#f4f8fb'; ctx.fillText(vlt, vlx, vly);
+    var vn = this.vring.newest(red);
     if (vn) {
-      var vp = project(V, vBelt(vn.a, 1)), vtw = ctx.measureText(vn.text).width + 14;
+      var vp = this.vring._pt(vn.a, 1), vtw = ctx.measureText(vn.text).width + 14;
       ctx.globalAlpha = vn.alpha;
       ctx.drawImage(shade, vp[0] - vtw / 2 - 6, vp[1] - 30, vtw + 12, 24);
       ctx.fillStyle = vn.dir === 'bull' ? '#ffe7a3' : '#ffffff';
@@ -1407,6 +1388,19 @@
     var age = this.t - g.born, al = red ? 1 : age < 4 ? 1 : age < 6.5 ? 1 - (age - 4) / 2.5 : 0;
     return al > 0.02 ? { a: g.a + this.rot, text: g.lab, alpha: al, dir: g.dir } : null;
   };
+  /* G = { cx, cy, rx, ry, tilt, k } in CSS px (y down); E(x, y, colour, alpha, size, trail) */
+  VsaRing.prototype.screen = function (dt, red, bias, G, E) {
+    var ct = Math.cos(G.tilt), st = Math.sin(G.tilt);
+    var pt = function (an, rf) {
+      var ex = Math.cos(an) * G.rx * rf, ey = Math.sin(an) * G.ry * rf;
+      return [G.cx + ex * ct - ey * st, G.cy + ex * st + ey * ct, 0.62 + 0.38 * Math.sin(an)];   /* near half (lower) brighter */
+    };
+    this.draw(dt, red, bias, { k: G.k, pt: pt, emit: function (pp, c, al, sz, trail) { E(pp[0], pp[1], c, al * pp[2], sz, trail); } });
+    this._pt = pt;
+    return pt;
+  };
+  /* where to put the permanent 'VSA · advisory' label (just outside the ring's left end) and the newest tag */
+  VsaRing.prototype.labelAt = function () { var p = this._pt(Math.PI, 1.12); return [p[0], p[1]]; };
   VsaRing.prototype.draw = function (dt, red, bias, M) {
     var adt = red ? 0 : dt, TAU = Math.PI * 2, i, a, p;
     this.t += adt; this.rot += adt * 0.035; this.sweep += adt * 0.75;
@@ -1434,6 +1428,10 @@
       if (this.shim > 0) { var sw = this.shim * (0.5 + 0.5 * Math.sin(i * 0.9 - T * 14)); c = mix(c, WARN, sw); sa *= 1 + sw * 1.4; }
       M.emit(p, c, sa, 2.0 + hi * 1.8, false);
     }
+    /* ring identity (same in every look): a fainter inner band and a bezel of marker photons */
+    var nI = Math.round(110 * k);
+    for (i = 0; i < nI; i++) { a = i / nI * TAU - this.rot * 0.6; p = M.pt(a, 0.9 + ((i * 0.618) % 1 - 0.5) * 0.02); if (p) M.emit(p, tint, 0.16 * lum * breath, 1.8, false); }
+    for (i = 0; i < 24; i++) { a = i / 24 * TAU + this.rot; p = M.pt(a, 1.085); if (p) M.emit(p, i % 6 ? tint : mix(tint, WHITE, 0.6), (i % 6 ? 0.28 : 0.6) * lum, i % 6 ? 2.2 : 3.4, false); }
     /* soft breathing glow under the ring */
     var nG = Math.round(48 * k);
     for (i = 0; i < nG; i++) { a = i / nG * TAU + this.rot * 0.5; p = M.pt(a, 1); if (p) M.emit(p, tint, 0.06 * lum * breath * (1 + fk * 2), 30, false); }

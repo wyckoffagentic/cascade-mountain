@@ -164,6 +164,13 @@
   }
   Vortex.prototype._t1 = function (p, c, a, s) { if (this.nT < 16000 && a > 0.003) pushP(this.dT, this.nT++, p, c, a, s); };
   Vortex.prototype._c1 = function (p, c, a, s) { if (this.nC < 12000 && a > 0.003) pushP(this.dC, this.nC++, p, c, a, s); };
+  /* screen-offset photon (px, y up) on a 3D anchor: used by the VSA ring */
+  Vortex.prototype._o1 = function (trail, p, c, a, s, ox, oy) {
+    if (a <= 0.003) return;
+    var arr, idx;
+    if (trail) { if (this.nT >= 16000) return; arr = this.dT; idx = this.nT++; } else { if (this.nC >= 12000) return; arr = this.dC; idx = this.nC++; }
+    pushP(arr, idx, p, c, a, s); arr[idx * 10 + 8] = ox; arr[idx * 10 + 9] = oy;
+  };
 
   Vortex.prototype.draw = function (dt, model) {
     var t0 = performance.now();
@@ -393,15 +400,15 @@
     this.vsaRot -= adt * 0.05;
     this.scanA += adt * 0.85;
     var vR = R * VSA_R, vY = R * VSA_Y;
-    var self = this;
-    this.vring.draw(dt, red, this.bias, {
-      k: phone ? 1.2 : 2.2,
-      pt: function (an, rf) { return [Math.cos(an) * vR * rf, vY, Math.sin(an) * vR * rf]; },
-      emit: function (pp, c, al, sz, trail) { if (trail) self._t1(pp, c, al, sz); else self._c1(pp, c, al, sz); }
-    });
 
     /* ---- render ---- */
     var V = this._camera(dt, w, h, R);
+    /* VSA ring: its own tilted gyre floating outside the funnel (dark gap between), photons only */
+    var self = this, vAn = [0, vY, 0], vc = project(V, vAn), fR = R * 0.9 * vc[2];
+    var vrx = Math.min(fR * 1.18 + 28, w * 0.485);
+    var vG = { cx: clamp(vc[0], vrx + 6, Math.max(vrx + 6, w - vrx - 6)), cy: vc[1] + fR * 0.1, rx: vrx, ry: vrx * 0.2, tilt: -0.1, k: phone ? 1.0 : 1.6 };
+    var vkInv = 1 / vc[2];
+    this.vring.screen(dt, red, this.bias, vG, function (x, y, c, al, sz, trail) { self._o1(trail, vAn, c, Math.min(1.8, al * 1.6), sz * vkInv * 1.8, x - vc[0], vc[1] - y); });
     V.dpr = dpr; V.maxW = phone ? 26 : 40;
     V.oy = phone ? R * 0.26 : -R * 0.07;
     var post = {
@@ -456,11 +463,11 @@
     var coreTxt = mE > 0.5 ? 'CORE · IN TRADE' : armed ? 'CORE · 5m TRIGGER ARMED' : 'DECISION CORE';
     tag(coreTxt, cpj[0], cpj[1] + cr * cpj[2] + (phone ? 18 : 22), 'center', '#ffffff', true);
     /* VSA ring caption on its left extreme, plus the newest finding near its glyph */
-    var vl = project(V, [-vR * Math.cos(0.25), vY, vR * Math.sin(0.25)]);
-    tag('VSA RING · ADVISORY', vl[0] - 4, vl[1] + 16, 'left', '#f4f8fb', true);
+    var vlp = this.vring.labelAt();   /* permanent label at the VSA ring's left end */
+    tag('VSA · advisory', vlp[0] - 10, vlp[1] + 20, 'left', '#f4f8fb', true);
     var vn = this.vring.newest(red);   /* tiny label on the newest finding, fading after a few seconds */
     if (vn) {
-      var gp = project(V, [Math.cos(vn.a) * vR, vY, Math.sin(vn.a) * vR]);
+      var gp = this.vring._pt(vn.a, 1);
       ctx.globalAlpha = vn.alpha;
       tag(vn.text, gp[0], gp[1] - (phone ? 18 : 22), 'center', vn.dir === 'bull' ? '#ffe7a3' : '#ffffff', false, true);
       ctx.globalAlpha = 1;
