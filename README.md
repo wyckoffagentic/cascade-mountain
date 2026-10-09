@@ -1,4 +1,4 @@
-# Cascade Mountains
+# Cascade Mountain
 
 Standalone demo page for a DMF (no-demand → upthrust → confirmation) short bot on futures: Gold (sim) and Nasdaq (sim).
 
@@ -64,16 +64,25 @@ Photon budget: swarm 480 / 170 (phone) / 60 (reduced motion). Band beads 192 / 1
 - Lane planes are tilted (inclinations 64, -48, 30, -72, 14 degrees). Each alignment step tightens their radius and rotates them toward the shared disc; they lie flat at fire. An invalidation tumbles them.
 - Camera: a slow idle drift of about 4 degrees. Drag to orbit (with inertia), double-click to reset, wheel or pinch to zoom 0.8 to 1.35. On touch, one-finger vertical drags still scroll the page. Reduced motion means no drift and no inertia.
 
-## Look: alpine night / glacier
-Fonts: Manrope (display and UI) and Geist Mono (figures). Both are vendored as WOFF subsets under the OFL; see `assets/fonts/LICENSES.md`.
+## Look: snow-capped peaks, quant chrome
+Dark slate peaks with white snow caps, layered with haze; the chrome is flat, hairline-ruled and numbers-first.
+- Stage backdrop (`assets/swarm.js`, composite shader): three snow-capped ranges (far hazed, middle, near dark slate) with faceted light and caps whose depth grows with height. Soft filled shapes only; the orbit itself stays photons only. Evaluated only below the tallest summit.
+- Header horizon: `assets/peaks-ridge.svg`, a full-bleed snow-capped ridgeline over a ruled elevation scale. Footer range: `assets/peaks-foot.svg`. Both are generated, faceted, static SVGs.
+- Panels are flat slate slabs with hairline borders; headers carry a small summit marker and a rule. Section dividers are labelled elevation scales.
+- Weakness energy is drawn as an elevation profile that the fill climbs (CSS `clip-path`, no script change).
+- Selected controls are white on dark. Alpenglow orange is kept for the SIMULATED marks and the top of the energy profile.
+- Fonts: Manrope (display and UI) and Geist Mono (figures, tabular). Both are vendored as WOFF subsets under the OFL; see `assets/fonts/LICENSES.md`.
+- Performance: the chrome sits on its own compositor layers (`will-change`) so the animated stage never forces it to repaint.
+
 Palette:
 
 | Role | Hex |
 |---|---|
 | Background | #060a10 → #0a131b → #0f2128 |
+| Snow | #f3f8fb |
 | Ice | #e8f4fb |
 | Glacier | #9fd3ee |
-| Alpenglow accent | #ff8a4c |
+| Alpenglow accent (rare) | #ff8a4c |
 | VSA warning amber | #ffcc33 |
 | 4H | #8c9aff |
 | 2H | #3fb8ff |

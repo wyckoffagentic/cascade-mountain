@@ -1,6 +1,6 @@
 # Custom futures bars
 
-The Cascade Mountains page ships in **DEMO / REPLAY** on synthetic bars. Real mode stays off until files exist here and you choose to drive the tape with them. Nothing in this folder is fetched from a vendor. Do not commit live account data.
+The Cascade Mountain page ships in **DEMO / REPLAY** on synthetic bars. Real mode stays off until files exist here and you choose to drive the tape with them. Nothing in this folder is fetched from a vendor. Do not commit live account data.
 
 ## Files
 

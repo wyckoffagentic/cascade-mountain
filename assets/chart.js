@@ -1,4 +1,4 @@
-/* HLC chart for the Cascade Mountains. Close tick is as thick as the high-low stem. */
+/* HLC chart for Cascade Mountain. Close tick is as thick as the high-low stem. */
 (function (global) {
   'use strict';
   var UP = '#d9eef8';

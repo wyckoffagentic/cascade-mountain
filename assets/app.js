@@ -1,4 +1,4 @@
-/* Cascade Mountains — replay UI. Demo bars only until data/custom has files. */
+/* Cascade Mountain — replay UI. Demo bars only until data/custom has files. */
 (function () {
   'use strict';
   var STATES = ['SCANNING', 'ND FOUND', 'SETUP', 'CONFIRMING', 'IN TRADE', 'TRAILING', 'EXIT'];

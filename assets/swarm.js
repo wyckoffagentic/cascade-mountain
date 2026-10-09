@@ -1,4 +1,4 @@
-/* Cascade Mountains — HQ orbital decision field.
+/* Cascade Mountain — HQ orbital decision field.
    A genuine 3D scene made only of light: thousands of GPU photons on tilted orbital lane planes,
    rendered into an HDR (half-float when available) buffer with photon trails, a bloom chain,
    ACES tone mapping, a warm grade, an alpine horizon with reflection, vignette and grain.
@@ -235,13 +235,30 @@
     HASH,
     'float hh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
     'vec3 aces(vec3 x){ return clamp((x*(2.51*x + 0.03)) / (x*(2.43*x + 0.59) + 0.14), 0.0, 1.0); }',
-    'float ridge(float x, float s){',
-    '  float h = 0.0;',
-    '  h += 0.060*(1.0 - abs(fract(x*1.3 + s) * 2.0 - 1.0));',
-    '  h += 0.032*(1.0 - abs(fract(x*3.1 + s*1.7) * 2.0 - 1.0));',
-    '  h += 0.014*(1.0 - abs(fract(x*7.9 + s*2.3) * 2.0 - 1.0));',
-    '  h += 0.005*(1.0 - abs(fract(x*19.0 + s*3.1) * 2.0 - 1.0));',
-    '  return h;',
+    'float tri(float x){ return 1.0 - abs(fract(x) * 2.0 - 1.0); }',
+    /* sharp alpine profile: a few big peaks with ridged detail */
+    'float peaksLo(float x, float s){ return 0.072*pow(tri(x*0.9 + s), 1.7) + 0.034*tri(x*2.3 + s*1.7) + 0.015*tri(x*5.7 + s*2.3); }',
+    'float peaks(float x, float s){ return peaksLo(x, s) + 0.006*tri(x*13.0 + s*3.1) + 0.0025*tri(x*31.0 + s*4.3); }',
+    /* one snow-capped range: rock hazed toward the sky by distance; a white cap whose depth grows with height above the snow altitude; lit on one face */
+    'vec3 range(vec3 col, vec2 uv, float x, float fx, float s, float k, float lift, vec3 rock, float haze, float snowAt, float snowK, float aa){',
+    '  float xx = x*fx + s*9.0;',
+    '  float h = peaks(xx, s);',
+    '  float m = uHy + h * k + lift;',
+    '  float a = smoothstep(m + aa, m - aa, uv.y);',
+    '  if (a <= 0.0) return col;',
+    '  float dep = max(m - uv.y, 0.0) / k;',
+    /* faceted light: the fold between the lit and shaded face leans away from each summit as it descends */
+    '  float xs = xx + dep * 1.6 * fx;',
+    '  float sl = peaksLo(xs + 0.008, s) - peaksLo(xs - 0.008, s);',
+    '  float lit = smoothstep(-0.0008, 0.0008, sl);',
+    '  float cap = max(h - snowAt, 0.0) * k * 0.5;',
+    '  cap += step(0.0001, cap) * (0.004*tri(xx*37.0) + 0.003*tri(xx*83.0 + 0.3)) * k;',
+    '  float snow = smoothstep(m - cap - aa*1.2, m - cap + aa*1.2, uv.y);',
+    '  vec3 r = rock * (0.78 + 0.4*lit);',
+    '  vec3 sn = mix(vec3(0.22, 0.29, 0.37), vec3(0.88, 0.93, 0.97), lit) * snowK;',
+    '  vec3 c = mix(r, sn, snow);',
+    '  c = mix(c, vec3(0.046, 0.078, 0.100), haze * (0.45 + 0.55*smoothstep(m, uHy, uv.y)));',
+    '  return mix(col, c, a);',
     '}',
     'void main(){',
     '  vec2 uv = vU;',
@@ -250,17 +267,23 @@
     '  vec3 sky = mix(vec3(0.020, 0.040, 0.062), vec3(0.008, 0.014, 0.024), smoothstep(uHy, 1.0, uv.y));',
     '  float hd = uv.y - uHy;',
     '  sky += vec3(0.05, 0.13, 0.17) * exp(-abs(hd) * 5.0) * 1.25 + vec3(0.03, 0.06, 0.09) * smoothstep(0.35, 0.0, hd) * step(0.0, hd);',
-    '  sky += vec3(0.30, 0.15, 0.08) * exp(-abs(hd) * 26.0) * 0.16;',
+    '  sky += vec3(0.30, 0.15, 0.08) * exp(-abs(hd) * 26.0) * 0.08;',
     '  vec3 col = sky;',
-    /* two mountain ranges: far (hazy) and near (dark with a cold rim light) */
-    '  float m2 = uHy + ridge(x*0.8 + 3.0, 0.37) * 1.25 + 0.012;',
-    '  if (uv.y < m2) { col = mix(col, vec3(0.030, 0.052, 0.068), 0.8); col += vec3(0.30, 0.45, 0.55) * exp(-max(m2 - uv.y, 0.0) * 300.0) * 0.06; }',
-    '  float m1 = uHy + ridge(x*1.15 + 0.4, 0.11) * 0.95;',
-    '  float rim = exp(-max(m1 - uv.y, 0.0) * 260.0);',
-    '  if (uv.y < m1) { col = mix(col, vec3(0.010, 0.017, 0.024), 0.9); col += vec3(0.45, 0.65, 0.80) * rim * 0.16; }',
-    /* snow catching the swarm light on the near ridge */
-    '  vec3 bl2 = texture2D(uB2, uv).rgb;',
-    '  if (uv.y < m1) col += bl2 * rim * 0.5;',
+    /* three snow-capped ranges: far (hazed, light), middle, near (dark slate, crisp caps) */
+    /* ranges only below the tallest possible summit (keeps the sky pass cheap) */
+    '  if (uv.y < uHy + 0.29) {',
+    '    float aa = 1.2 / uRes.y;',
+    '    if (uv.y > uHy) {',
+    '    col = range(col, uv, x, 0.55, 0.61, 2.0, 0.018, vec3(0.040, 0.062, 0.080), 0.5, 0.064, 0.6, aa);',
+    '    col = range(col, uv, x, 0.80, 0.37, 1.45, 0.006, vec3(0.028, 0.043, 0.057), 0.28, 0.058, 0.66, aa);',
+    '    }',
+    '    float m1 = uHy + peaks(x*1.15 + 0.99, 0.11) * 1.0;',
+    '    float rim = exp(-max(m1 - uv.y, 0.0) * 260.0);',
+    '    col = range(col, uv, x, 1.15, 0.11, 1.0, 0.0, vec3(0.011, 0.018, 0.025), 0.0, 0.052, 0.6, aa);',
+    /* the near caps catch a little of the swarm light */
+    '    vec3 bl2 = texture2D(uB2, uv).rgb;',
+    '    if (uv.y < m1) col += bl2 * rim * 0.4;',
+    '  }',
     /* still water below the horizon: reflected, blurred light of the scene */
     '  if (uv.y < uHy) {',
     '    float dd = uHy - uv.y;',
@@ -1095,7 +1118,7 @@
     var post = {
       keep: keep, thr: 0.85, knee: 0.5, time: T,
       expo: 1.06 + 0.04 * E, flash: flashK * (this.flash === 'entry' ? 1.4 : 1), flashCol: c01(mix(this.flashCol, WHITE, 0.5)),
-      grain: 0.028, hy: +canvas.dataset.hy || (phone ? 0.2 : 0.24), bloom: (0.55 + 0.2 * E + flashK * 0.7) * (this.ultra ? 1.25 : 1), vig: 0.55
+      grain: 0.018, hy: +canvas.dataset.hy || (phone ? 0.2 : 0.24), bloom: (0.55 + 0.2 * E + flashK * 0.7) * (this.ultra ? 1.25 : 1), vig: 0.55
     };
     var cpj = project(V, [0, 0, 0]); post.core = [cpj[0] / w, 1 - cpj[1] / h];
     if (!this.lost) {

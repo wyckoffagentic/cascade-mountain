@@ -1,4 +1,4 @@
-/* Cascade Mountains — DMF sim engine (futures, demo bars only).
+/* Cascade Mountain — DMF sim engine (futures, demo bars only).
    No network. Real bars can be parsed later via parseBars() / loadBars() in app.js.
    Browser: window.DMF. Node: module.exports.
 */

@@ -1,4 +1,4 @@
-/* VSA Watcher — advisory overseer for the Cascade Mountains.
+/* VSA Watcher — advisory overseer for Cascade Mountain.
    Reads closed sim bars per timeframe and publishes findings. It never writes to the
    trading engine: no entries, stops or exits are changed here.
 

@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#060a10">
-<title>Cascade Mountains · DMF futures (simulated replay)</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1c24'/%3E%3Ccircle cx='23' cy='9.5' r='2.6' fill='%23ff8a4c'/%3E%3Cpath d='M3 25 10.5 14l3.5 4.5 5-7L29 25z' fill='%2378aac2' opacity='.7'/%3E%3Cpath d='M1 29 12 16l4.5 5.5L21 17l10 12z' fill='%23d8ecf7'/%3E%3C/svg%3E">
+<meta name="description" content="Cascade Mountain: a simulated DMF futures shorting dashboard. Demo data only, no broker, no orders.">
+<title>Cascade Mountain · DMF futures (simulated replay)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a1219'/%3E%3Cpath d='M3 27 13 9l6 10 3-4 7 12z' fill='%23324b5a'/%3E%3Cpath d='M13 9l3.6 6.5-1.8-.9L13 16.4l-1.7-1.7-1.9 1z' fill='%23f3f8fb'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -16,20 +17,15 @@
   <header class="head">
     <div class="brand">
       <svg class="logo" viewBox="0 0 44 44" aria-hidden="true">
-        <defs>
-          <linearGradient id="lgSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16303a"/><stop offset="1" stop-color="#08121a"/></linearGradient>
-          <linearGradient id="lgPeak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8f4fb"/><stop offset="1" stop-color="#5f9fbf"/></linearGradient>
-          <linearGradient id="lgBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fb2cc"/><stop offset="1" stop-color="#21414f"/></linearGradient>
-        </defs>
-        <rect x="0.5" y="0.5" width="43" height="43" rx="12" fill="url(#lgSky)"/>
-        <circle cx="31" cy="13" r="3.2" fill="#ff8a4c"/>
-        <path d="M4 34 L14 19 L19 25 L26 15 L40 34 Z" fill="url(#lgBack)" opacity=".75"/>
-        <path d="M2 38 L16 21 L22 28 L28 22 L42 38 Z" fill="url(#lgPeak)"/>
-        <path d="M16 21 L19.6 25.4 L17.6 25 L16 27 L14.2 24.6 L12.6 25.2 Z" fill="#ffffff"/>
-        <rect x="0.5" y="0.5" width="43" height="43" rx="12" fill="none" stroke="rgba(214,236,255,.28)"/>
+        <rect x="0.5" y="0.5" width="43" height="43" rx="7" fill="#0a1219" stroke="rgba(232,244,251,.32)"/>
+        <path d="M5 35 L15.5 19.5 L20 26 L27.5 12 L39 35 Z" fill="#2a4150"/>
+        <path d="M27.5 12 L39 35 L31 35 L27.2 22.5 Z" fill="#162631"/>
+        <path d="M27.5 12 L31.4 19.4 L29.6 18.6 L28.3 20.8 L26.7 18.9 L24.6 20.3 Z" fill="#f3f8fb"/>
+        <path d="M15.5 19.5 L17.7 22.7 L16.3 22.2 L15.4 23.6 L14.2 22.4 L13.2 23 Z" fill="#c9d8e2"/>
+        <path d="M5 35 H39" stroke="#f3f8fb" stroke-width="1"/>
       </svg>
       <div class="wm">
-        <b>Cascade <span>Mountains</span></b>
+        <b>Cascade <span>Mountain</span></b>
         <small>DMF futures · simulated replay</small>
       </div>
       <div class="badges"><span class="badge sim">SIMULATED</span><span class="badge" id="modeBadge">DEMO / REPLAY</span></div>
@@ -40,6 +36,7 @@
       <div class="pill" id="pillMkt"><span class="k">Globex (sim)</span><span class="v" id="mktClock">—</span></div>
     </div>
   </header>
+  <div class="ridgeline" aria-hidden="true"></div>
 
   <section class="split">
     <section class="stagehero" id="stage" aria-label="Orbital decision field">
@@ -139,6 +136,7 @@
     </div>
   </div>
 
+  <div class="elev" aria-hidden="true"><span>Price</span><em>HLC · close tick = bar width · SIMULATED</em></div>
   <section class="charts">
     <article class="panel chart-card" data-inst="gold" id="card-gold">
       <div class="top">
@@ -164,6 +162,7 @@
     </article>
   </section>
 
+  <div class="elev" aria-hidden="true"><span>Reasoning · tape · risk</span><em>1.00% total risk cap</em></div>
   <section class="lower">
     <article class="panel logp">
       <h2>Bot log <span>plain-English reasoning</span></h2>

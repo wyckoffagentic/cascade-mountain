@@ -1,5 +1,5 @@
-/* Cascade Mountains — alpine night / glacier. Frosted glass, hairlines, one alpenglow accent.
-   Glow lives on visuals only; figures stay crisp. */
+/* Cascade Mountain — snow-capped peaks, quant chrome. Dark slate, snow and ice; hairline rules; tabular figures.
+   Alpenglow orange is a rare accent (SIMULATED marks only). Glow lives in the orbit; the chrome stays flat and crisp. */
 @font-face{font-family:'Manrope';src:url(fonts/Manrope-var.woff) format('woff');font-weight:200 800;font-display:swap}
 @font-face{font-family:'Geist Mono';src:url(fonts/GeistMono-var.woff) format('woff');font-weight:100 900;font-display:swap}
 :root{
@@ -18,8 +18,8 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--f);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 body{min-height:100vh;overflow-x:hidden;
-  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 360' preserveAspectRatio='none'%3E%3Cpath d='M0 250 L120 180 L210 225 L330 120 L430 200 L520 150 L640 230 L760 95 L860 190 L960 140 L1080 215 L1200 110 L1300 185 L1420 150 L1600 220 L1600 360 L0 360Z' fill='%2397c6dc' fill-opacity='0.05'/%3E%3Cpath d='M0 300 L150 240 L260 285 L380 210 L500 275 L620 230 L740 290 L880 200 L1010 270 L1130 235 L1260 290 L1400 225 L1600 280 L1600 360 L0 360Z' fill='%2378aabf' fill-opacity='0.07'/%3E%3Cpath d='M0 335 L200 300 L360 330 L520 290 L700 335 L860 305 L1040 338 L1220 300 L1400 330 L1600 305 L1600 360 L0 360Z' fill='%23050a0f' fill-opacity='0.55'/%3E%3C/svg%3E") bottom center/100% 340px no-repeat scroll,
-             radial-gradient(1200px 600px at 20% -10%,rgba(120,170,210,.10),transparent 65%),
+  background:url(peaks-foot.svg) bottom center/auto 210px repeat-x scroll,
+             radial-gradient(1200px 520px at 50% -12%,rgba(150,190,220,.07),transparent 65%),
              linear-gradient(180deg,#060a10 0%,#0a131b 48%,#0f2128 100%) fixed}
 #bg{position:fixed;inset:0;width:100vw;height:100vh;z-index:-1;pointer-events:none;display:block}
 .num,.pill .v,.stats b,.odo,.pxbig,.condnum,.log,.tape li em,input[type=number]{font-variant-numeric:tabular-nums}
@@ -311,7 +311,7 @@ body.focus-gold .chart-card[data-inst=nasdaq],body.focus-nasdaq .chart-card[data
   .odo .sign{font-size:22px;line-height:40px;width:28px}
   .tape li{grid-template-columns:48px 1fr}
   .tape li em{justify-self:start}
-  body{background-size:100% 200px,auto,auto}
+  body{background-size:auto 130px,auto,auto}
   body.focus-gold .chart-card[data-inst=nasdaq],body.focus-nasdaq .chart-card[data-inst=gold]{display:none}
 }
 @media (prefers-reduced-motion:reduce){
@@ -385,3 +385,112 @@ body.focus-gold .chart-card[data-inst=nasdaq],body.focus-nasdaq .chart-card[data
   .lower{grid-template-columns:1fr;gap:14px}
   .logp .log{height:240px}
 }
+
+
+/* ================= Cascade Mountain identity: snow caps + quant chrome ================= */
+:root{--r:8px;--snow:#f3f8fb;--line:rgba(214,236,255,.11);--line2:rgba(214,236,255,.2);--line3:rgba(214,236,255,.36);--slab:rgba(8,13,19,.82)}
+/* header: clean, generous */
+.head{padding:14px 2px 18px}
+.brand{gap:16px}
+.wm b{font-size:24px;font-weight:700;letter-spacing:-.025em;color:var(--snow)}
+.wm b span{font-weight:300;color:var(--snow)}
+.wm small{font-family:var(--m);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--tx2);margin-top:5px}
+.badge{border-radius:4px;padding:3px 9px;font-size:10.5px;letter-spacing:.12em;background:transparent;border-color:var(--line3)}
+.badge.sim{background:transparent}
+.clocks{gap:0}
+.pill{background:transparent;border:0;border-left:1px solid var(--line2);border-radius:0;padding:2px 16px 2px 14px;backdrop-filter:none;-webkit-backdrop-filter:none}
+.pill .k{font-size:10px;letter-spacing:.14em;color:var(--tx2)}
+.pill .v{font-size:13px;color:var(--snow)}
+.pill.open{border-color:rgba(109,255,158,.6)}.pill.break{border-color:rgba(255,204,51,.7)}.pill.closed{border-color:rgba(255,156,134,.7)}
+/* the horizon: a full-bleed snow-capped ridgeline with an elevation scale under it */
+.ridgeline{position:relative;width:100vw;margin:-4px calc(50% - 50vw) 18px;height:78px;pointer-events:none;
+  background:url(peaks-ridge.svg) bottom center/auto 100% repeat-x}
+.ridgeline:after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:6px;
+  background:linear-gradient(var(--line3),var(--line3)) top/100% 1px no-repeat,
+             repeating-linear-gradient(90deg,var(--line2) 0 1px,transparent 1px 40px) top left/100% 4px no-repeat,
+             repeating-linear-gradient(90deg,var(--line3) 0 1px,transparent 1px 200px) top left/100% 6px no-repeat}
+/* section dividers: summit marker, label, ruled elevation scale */
+.elev{display:flex;align-items:center;gap:12px;margin:30px 0 14px;color:var(--tx2)}
+.elev:before{content:"";width:9px;height:8px;background:var(--snow);clip-path:polygon(50% 0,100% 100%,0 100%);flex:0 0 auto}
+.elev span{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--snow);white-space:nowrap}
+.elev em{order:3;font-style:normal;font-family:var(--m);font-size:11px;color:var(--tx2);white-space:nowrap}
+.elev:after{content:"";order:2;flex:1;height:6px;align-self:center;
+  background:linear-gradient(var(--line2),var(--line2)) center/100% 1px no-repeat,
+             repeating-linear-gradient(90deg,var(--line2) 0 1px,transparent 1px 24px) center/100% 5px no-repeat}
+/* panels: flat slate slabs, hairlines, summit-marker headers */
+.panel{background:var(--slab);backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid var(--line);border-radius:var(--r);box-shadow:none}
+.panel h2{justify-content:flex-start;gap:9px;align-items:center;font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--snow);
+  padding-bottom:9px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.panel h2:before{content:"";width:8px;height:7px;flex:0 0 auto;background:var(--snow);clip-path:polygon(50% 0,100% 100%,0 100%)}
+.panel h2 span{margin-left:auto;text-align:right;font-family:var(--m);font-size:11px;font-weight:400;color:var(--tx2)}
+.siderail .panel h2{margin-bottom:10px}
+.vsa{background:var(--slab);border-color:rgba(237,246,255,.2)}
+.vsa:before{display:none}
+/* controls: crisp segmented chrome, white = selected */
+.controls{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0;padding:10px 0}
+.grp{background:transparent;border:1px solid var(--line2);border-radius:6px;padding:2px}
+.grp button{border-radius:4px;font-weight:600}
+.grp button.on{background:var(--snow);border-color:var(--snow);color:#071018}
+#btnPlay{background:rgba(243,248,251,.08);border-color:var(--line3);color:var(--snow)}
+#btnPlay:hover{background:rgba(243,248,251,.16)}
+input[type=number]{border-radius:4px;background:#060b10}
+input[type=range]{accent-color:var(--snow)}
+/* stage: hairline frame, sharp corners, quieter HUD glass */
+.split .stagehero{border-radius:var(--r);border-color:var(--line2);box-shadow:none}
+.hud{border-radius:6px;background:rgba(5,9,14,.62);border-color:var(--line2);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.hud-k{font-size:10px;letter-spacing:.14em}
+.hud-state b{font-weight:700;letter-spacing:-.02em}
+.ladder button{border-radius:5px;backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(5,9,14,.7)}
+.deeptag,.vsaflag{border-radius:4px}
+/* weakness energy as an elevation profile: the fill climbs the ridge */
+.energy .entrack{height:30px;margin-top:6px;border-radius:0;overflow:hidden;position:relative;background:rgba(232,244,251,.13);
+  clip-path:polygon(0.0% 100.0%,0.0% 90.0%,7.0% 80.0%,11.0% 85.0%,17.0% 66.7%,22.0% 73.3%,29.0% 50.0%,33.0% 60.0%,39.0% 41.7%,44.0% 51.7%,50.0% 30.0%,54.0% 40.0%,60.0% 23.3%,64.0% 35.0%,71.0% 15.0%,75.0% 26.7%,80.0% 10.0%,84.0% 21.7%,90.0% 5.0%,94.0% 13.3%,100.0% 0.0%,100.0% 100.0%)}
+.energy .entrack i{background:linear-gradient(90deg,#9fb6c6,var(--ice) 70%,#fff 90%,var(--accent2))}
+.energy .enlab{font-size:10px;letter-spacing:.14em}
+/* money + gauges: numbers first */
+.odig{border-radius:4px;background:#060b10;border-color:var(--line2)}
+.stats{gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 0}
+.stats div{background:transparent;border:0;border-left:1px solid var(--line);border-radius:0;padding:2px 4px}
+.stats div:first-child{border-left:0}
+.stats small{font-size:9.5px;letter-spacing:.12em}
+.gtrack{height:6px;border-radius:1px}
+.needle{top:-4px;height:14px;width:2px;border-radius:0}
+.pips i{border-radius:1px;height:5px}
+.checks li{border-radius:4px;background:transparent}
+.checks li.on{border-color:rgba(243,248,251,.4);background:rgba(243,248,251,.05)}
+.checks li.on i{background:var(--snow);border-color:var(--snow)}
+.pos .card{border-radius:6px;background:transparent}
+.pos .card.live{border-color:rgba(243,248,251,.5)}
+.thesis{border-radius:6px}
+.biastrack{border-radius:1px;height:8px}
+.vsafeed li,.tape li{border-radius:5px;background:rgba(232,244,251,.025)}
+.vsafeed .tf{border-radius:3px}
+.vsafeed .tag{border-radius:3px}
+/* charts */
+.cvwrap{border-radius:6px;background:#060b10}
+.chart-card .statechip{border-radius:4px}
+.chart-card .name{font-weight:700;letter-spacing:-.01em}
+.chart-card .name small{border-radius:3px}
+.log{border-radius:6px}
+#spark{border-radius:6px}
+.states b{border-radius:3px}
+.foot{margin-top:28px;padding:16px 0 150px;border-top:1px solid var(--line);line-height:1.6}
+@media (max-width:800px){
+  .ridgeline{height:46px;margin:-2px calc(50% - 50vw) 14px}
+  .pill{padding:2px 10px}
+  .clocks{gap:6px 0}
+  .elev{margin:22px 0 12px}
+  .elev em{display:none}
+  .energy .entrack{height:20px}
+  .foot{padding-bottom:100px}
+}
+/* odometer: hairline drawn as an inset shadow so clientHeight equals the digit cell height (keeps digits centred) */
+.odig,.rc-pnl .odig{border:0;box-shadow:inset 0 0 0 1px var(--line2)}
+@media (max-width:800px){ .clocks .pill{border-radius:0;padding:2px 10px} }
+.controls{gap:8px}
+.grp button{padding:6px 10px}
+.grp .gl{padding:0 6px}
+input[type=number]{width:78px}
+#seed{width:58px}
+/* perf: keep the flat chrome on its own compositor layers so the animated stage and star field never force it to repaint */
+.panel,.ridgeline,.controls,.elev,.head,.foot{will-change:transform}
