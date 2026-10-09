@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#060a10">
+<title>Cascade Mountains · DMF futures (simulated replay)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c1c24'/%3E%3Ccircle cx='23' cy='9.5' r='2.6' fill='%23ff8a4c'/%3E%3Cpath d='M3 25 10.5 14l3.5 4.5 5-7L29 25z' fill='%2378aac2' opacity='.7'/%3E%3Cpath d='M1 29 12 16l4.5 5.5L21 17l10 12z' fill='%23d8ecf7'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="simban" role="status">SIMULATED DATA — not real prices <i>· demo scale · no broker · no orders</i></div>
+<div class="app">
+  <header class="head">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 44 44" aria-hidden="true">
+        <defs>
+          <linearGradient id="lgSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16303a"/><stop offset="1" stop-color="#08121a"/></linearGradient>
+          <linearGradient id="lgPeak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8f4fb"/><stop offset="1" stop-color="#5f9fbf"/></linearGradient>
+          <linearGradient id="lgBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fb2cc"/><stop offset="1" stop-color="#21414f"/></linearGradient>
+        </defs>
+        <rect x="0.5" y="0.5" width="43" height="43" rx="12" fill="url(#lgSky)"/>
+        <circle cx="31" cy="13" r="3.2" fill="#ff8a4c"/>
+        <path d="M4 34 L14 19 L19 25 L26 15 L40 34 Z" fill="url(#lgBack)" opacity=".75"/>
+        <path d="M2 38 L16 21 L22 28 L28 22 L42 38 Z" fill="url(#lgPeak)"/>
+        <path d="M16 21 L19.6 25.4 L17.6 25 L16 27 L14.2 24.6 L12.6 25.2 Z" fill="#ffffff"/>
+        <rect x="0.5" y="0.5" width="43" height="43" rx="12" fill="none" stroke="rgba(214,236,255,.28)"/>
+      </svg>
+      <div class="wm">
+        <b>Cascade <span>Mountains</span></b>
+        <small>DMF futures · simulated replay</small>
+      </div>
+      <div class="badges"><span class="badge sim">SIMULATED</span><span class="badge" id="modeBadge">DEMO / REPLAY</span></div>
+    </div>
+    <div class="clocks">
+      <div class="pill" id="pillSim"><span class="k">Sim tape · Sydney</span><span class="v" id="simClock">—</span></div>
+      <div class="pill" id="pillNow"><span class="k">Now · Sydney</span><span class="v" id="nowClock">—</span></div>
+      <div class="pill" id="pillMkt"><span class="k">Globex (sim)</span><span class="v" id="mktClock">—</span></div>
+    </div>
+  </header>
+
+  <section class="split">
+    <section class="stagehero" id="stage" aria-label="Orbital decision field">
+      <div class="field">
+        <canvas id="swarm" aria-label="Orbital decision swarm: drag to orbit, double-click to reset"></canvas>
+      </div>
+      <div class="hud hud-tl">
+        <div class="hud-k">Bot thinking · <span id="hudInst">Gold (sim)</span> <em class="hud-sim">SIM</em></div>
+        <div class="hud-state"><b id="hudState">SCANNING</b><span id="hudPct">0%</span></div>
+        <div class="meter" aria-label="Conviction"><i id="meter"></i></div>
+        <div class="hud-mode" id="hudMode">Lanes · orbital planes</div>
+      </div>
+      <div class="hud hud-br energy" aria-label="Weakness energy">
+        <div class="enrow"><span class="enlab">Weakness energy</span><b id="energyNum">0</b></div>
+        <div class="entrack"><i id="energyBar"></i></div>
+      </div>
+      <div class="ladder" id="ladder" aria-label="Timeframe cascade">
+        <div class="rail" aria-hidden="true"><i id="railDot"></i></div>
+        <button type="button" data-tf="4h" style="--tf:var(--tf4h)">4H</button>
+        <button type="button" data-tf="2h" style="--tf:var(--tf2h)">2H</button>
+        <button type="button" data-tf="30m" style="--tf:var(--tf30)">30m</button>
+        <button type="button" data-tf="15m" style="--tf:var(--tf15)">15m</button>
+        <button type="button" data-tf="5m" style="--tf:var(--tf5)">5m</button>
+      </div>
+      <div class="stageflags">
+        <div class="deeptag" id="deepTag" hidden>DEEP ZONE</div>
+        <div class="vsaflag" id="vsaFlag" hidden>VSA ⚑ contradiction</div>
+      </div>
+      <div class="tflegend" aria-label="Timeframe colours">
+        <span style="--c:var(--tf4h)">4H</span><span style="--c:var(--tf2h)">2H</span><span style="--c:var(--tf30)">30m</span><span style="--c:var(--tf15)">15m</span><span style="--c:var(--tf5)">5m</span><span class="sig" style="--c:var(--signal)">aligned signal</span><span class="ovr" style="--c:var(--pearl)">VSA overseer</span>
+      </div>
+    </section>
+
+    <aside class="siderail" aria-label="Account, conditions and VSA">
+      <article class="panel rc-pnl" id="money">
+        <h2>Sim P&amp;L <span>live · both books · SIMULATED</span></h2>
+        <div class="pnlrow">
+          <div class="odo-wrap"><div class="odo up" id="odo" aria-live="polite"></div></div>
+          <div class="pnlsub" id="hudOpen">flat</div>
+        </div>
+        <div class="stats" id="stats"></div>
+        <div class="gauge">
+          <div class="gtrack" aria-hidden="true"><div class="ok"></div><div class="mid"></div><div class="hot"></div><div class="needle" id="needle"></div></div>
+          <div class="glab"><span id="riskLab">Open risk —</span><span>red ≥ 1%</span></div>
+        </div>
+      </article>
+      <article class="panel rc-cond" id="condPanel">
+        <h2>Conditions <span id="followLabel">Gold (sim)</span></h2>
+        <div class="condread" id="condRead">
+          <div class="condnum"><b id="condCount">0</b><span id="condOf"> / 9</span></div>
+          <div class="condlab">conditions met</div>
+          <div class="pips" id="condPips"></div>
+        </div>
+        <ul class="checks" id="checks"></ul>
+      </article>
+      <article class="panel vsa rc-vsa" id="vsa">
+        <h2>VSA watcher <span>advisory · never touches the trade</span></h2>
+      <div class="vsa-top">
+        <div class="bias">
+          <div class="biaslab"><span>Bearish weight</span><span>Bullish weight</span></div>
+          <div class="biastrack" aria-hidden="true"><i class="bear" id="biasBear"></i><i class="bull" id="biasBull"></i><b id="biasNeedle"></b></div>
+          <div class="biasnum" id="biasNum">Net bias —</div>
+        </div>
+        <div class="thesis" id="thesis">Watching the tape.</div>
+      </div>
+        <ul class="vsafeed" id="vsaFeed"></ul>
+      </article>
+    </aside>
+  </section>
+
+  <div class="controls" role="toolbar" aria-label="Replay">
+    <div class="grp" role="group" aria-label="Transport">
+      <button type="button" id="btnPlay" aria-pressed="true">Pause</button>
+      <button type="button" id="btnStep">Step</button>
+      <button type="button" id="btnNext">Next setup</button>
+      <button type="button" id="btnRestart">Restart</button>
+    </div>
+    <div class="grp seg" id="speeds" role="group" aria-label="Speed">
+      <span class="gl">Speed</span>
+      <button type="button" data-sp="1">1×</button>
+      <button type="button" data-sp="2">2×</button>
+      <button type="button" data-sp="5">5×</button>
+      <button type="button" data-sp="8" class="on">8×</button>
+      <button type="button" data-sp="20">20×</button>
+      <button type="button" data-sp="50">50×</button>
+    </div>
+    <div class="grp seg" id="focus" role="group" aria-label="Instrument focus">
+      <span class="gl">Focus</span>
+      <button type="button" data-f="both" class="on">Both</button>
+      <button type="button" data-f="gold">Gold (sim)</button>
+      <button type="button" data-f="nasdaq">Nasdaq (sim)</button>
+    </div>
+    <div class="grp">
+      <label class="seedlab">Seed <input id="seed" type="number" value="7" min="1" max="9999"></label>
+      <button type="button" id="btnMotion" aria-pressed="true">Motion</button>
+      <button type="button" id="btnSound" aria-pressed="false">Sound off</button>
+    </div>
+  </div>
+
+  <section class="charts">
+    <article class="panel chart-card" data-inst="gold" id="card-gold">
+      <div class="top">
+        <div>
+          <div class="name">Gold (sim) <small>SIMULATED</small></div>
+          <div class="pxbig" id="px-gold">—</div>
+        </div>
+        <div class="statechip" id="st-gold">SCANNING</div>
+      </div>
+      <div class="cvwrap"><canvas id="c-gold"></canvas><div class="tip" id="tip-gold" hidden></div></div>
+      <div class="legend"><span><i style="background:#d9eef8"></i>HLC up</span><span><i style="background:#ff9c86"></i>HLC down</span><span><i style="background:#7fd4ff"></i>EMA10</span><span><i style="background:#c3a6ff"></i>EMA20</span><span><i style="background:#f2dfae"></i>EMA50</span><span><i style="background:#ff8a4c"></i>trail + deep zone</span><span><i class="glyph bear">▼</i>VSA confirms (timeframe colour)</span><span><i class="glyph bull">▲</i>VSA contradicts (amber edge)</span></div>
+    </article>
+    <article class="panel chart-card" data-inst="nasdaq" id="card-nasdaq">
+      <div class="top">
+        <div>
+          <div class="name">Nasdaq (sim) <small>SIMULATED</small></div>
+          <div class="pxbig" id="px-nasdaq">—</div>
+        </div>
+        <div class="statechip" id="st-nasdaq">SCANNING</div>
+      </div>
+      <div class="cvwrap"><canvas id="c-nasdaq"></canvas><div class="tip" id="tip-nasdaq" hidden></div></div>
+      <div class="legend"><span>Gold contract: tick 0.10 = $10 · micro $1</span><span>Nasdaq contract: tick 0.25 = $5 · micro $0.50</span><span id="tfLab">chart 5m</span></div>
+    </article>
+  </section>
+
+  <section class="lower">
+    <article class="panel logp">
+      <h2>Bot log <span>plain-English reasoning</span></h2>
+      <div class="states" id="states" aria-label="State machine"></div>
+      <div class="log" id="log" aria-live="polite"></div>
+    </article>
+    <article class="panel tape">
+      <h2>Trade tape <span>newest first · sim fills only</span></h2>
+      <ul id="tape"></ul>
+    </article>
+    <article class="panel posp">
+      <h2>Positions &amp; risk <span>one account</span></h2>
+      <canvas id="spark" aria-label="Equity curve"></canvas>
+        <label class="risklab">Account
+          <input id="equity" type="number" value="50000" min="1000" step="1000">
+          risk <span id="riskPctLab">0.75%</span>
+          <input id="risk" type="range" min="0.25" max="1" step="0.05" value="0.75">
+        </label>
+        <div class="pos" id="pos"></div>
+    </article>
+  </section>
+
+  <footer class="foot">
+    Standalone demo. Real mode stays off until you drop futures bars in <code>data/custom/</code> (see <code>data/custom/SCHEMA.md</code>).
+    The page aggregates 5m into 15m / 30m / 2h / 4h. Times are Sydney (AEDT) with New York on the crosshair. Demo P&amp;L has no commission and no slippage.
+    The VSA watcher is advisory: it never changes entries, stops or exits.
+    <span id="realNote"></span>
+  </footer>
+</div>
+<script src="assets/engine.js"></script>
+<script src="assets/chart.js"></script>
+<script src="assets/swarm-lite.js"></script>
+<script src="assets/swarm.js"></script>
+<script src="assets/vsa-watcher.js"></script>
+<script src="assets/bg.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
