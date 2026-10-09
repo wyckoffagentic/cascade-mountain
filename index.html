@@ -36,12 +36,6 @@
       </div>
       <div class="badges"><span class="badge sim">SIMULATED</span><span class="badge" id="modeBadge">DEMO / REPLAY</span></div>
     </div>
-    <div class="looksw" role="radiogroup" aria-label="Look">
-      <span class="k">Look</span>
-      <div class="grp" id="lookSw">
-        <button type="button" role="radio" data-look="mountain" aria-checked="true">Mountain</button><button type="button" role="radio" data-look="vortex" aria-checked="false">Vortex</button><button type="button" role="radio" data-look="aurora" aria-checked="false">Aurora</button>
-      </div>
-    </div>
     <div class="clocks">
       <div class="pill" id="pillSim"><span class="k">Sim tape · Sydney</span><span class="v" id="simClock">—</span></div>
       <div class="pill" id="pillNow"><span class="k">Now · Sydney</span><span class="v" id="nowClock">—</span></div>
@@ -55,6 +49,12 @@
       <div class="field">
         <canvas id="swarm" aria-label="Orbital decision swarm: drag to orbit, double-click to reset"></canvas>
       </div>
+      <div class="looksw" role="radiogroup" aria-label="Look">
+        <span class="k">Look</span>
+        <div class="grp" id="lookSw">
+            <button type="button" role="radio" data-look="mountain" aria-checked="true">Mountain</button><button type="button" role="radio" data-look="vortex" aria-checked="false">Vortex</button><button type="button" role="radio" data-look="aurora" aria-checked="false">Aurora</button>
+          </div>
+        </div>
       <div class="hud hud-tl">
         <div class="hud-k">Bot thinking · <span id="hudInst">Gold (sim)</span> <em class="hud-sim">SIM</em></div>
         <div class="hud-state"><b id="hudState">SCANNING</b><span id="hudPct">0%</span></div>

@@ -29,7 +29,7 @@
     var tail = src.slice(src.indexOf('  vec3 sc = texture2D(uS, uv).rgb;'));
     return head + [
       'uniform float uAI[5]; uniform float uAB[5]; uniform vec3 uAC[5];',
-      'uniform float uAct, uSurge, uSwirl, uAmp, uAPh; uniform vec2 uCor; uniform vec3 uSig;',
+      'uniform float uAct, uSurge, uSwirl, uAmp, uAPh, uEn; uniform vec2 uCor; uniform vec3 uSig;',
       'float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);',
       '  float a = hh(i), b = hh(i + vec2(1.0, 0.0)), c = hh(i + vec2(0.0, 1.0)), d = hh(i + vec2(1.0, 1.0));',
       '  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }',
@@ -39,6 +39,8 @@
       '}',
       'vec3 aurora(vec2 p){',
       '  vec2 d = p - uCor; float r = length(d);',
+      '  float eye = clamp(exp(-r * 3.2) * 1.7, 0.0, 1.0);',
+      '  float gmix = uSurge * mix(1.0, eye, uSwirl);',
       /* cyclone: swirl the sky round the corona (sustained while in trade) */
       '  float sw = uSwirl * 1.9 * exp(-r * 2.4);',
       '  float ang = sw * (1.0 + 0.25 * sin(uAPh * 0.5)) + uSwirl * uAPh * 0.3 * exp(-r * 2.6);',
@@ -66,7 +68,7 @@
       '    vec3 c = uAC[k];',
       '    c = mix(c, mix(vec3(0.75, 1.0, 0.9), uAC[k], 0.35), hem * 0.8);',
       '    c = mix(c, c * vec3(0.8, 0.5, 1.15), smoothstep(0.0, hgt * 2.0, dy) * 0.6);',
-      '    c = mix(c, uSig, uSurge);',
+      '    c = mix(c, uSig, gmix);',
       '    acc += c * a;',
       '  }',
       /* corona: soft radial rays round the decision point, strongest in the cyclone */
@@ -74,6 +76,20 @@
       '  float rayA = atan(d.y, d.x);',
       '  float cor = (0.25 + 0.75 * vn(vec2(rayA * 9.0 + uAPh * 0.4, uAPh * 0.2))) * exp(-cr2 * 4.5) * uSwirl;',
       '  acc += uSig * cor * 0.9;',
+      /* cyclone arms: violet / magenta / pink / teal log-spiral bands and filaments whipping round the green eye */
+      '  if (uSwirl > 0.01) {',
+      '    float ra = length(d), th = atan(d.y, d.x);',
+      '    float sp = th + log(ra + 0.03) * 3.4 - uAPh * 1.8;',
+      '    float arms = pow(0.5 + 0.5 * sin(sp * 3.0), 3.0);',
+      '    float fil = pow(vn(vec2(sp * 7.0, ra * 46.0 - uAPh * 2.4)), 3.0) * (0.6 + 0.4 * sin(sp * 11.0 + uAPh * 3.0));',
+      '    float band = fract(sp * 0.4775 + 0.11 * uAPh);',
+      '    vec3 P0 = vec3(0.50, 0.36, 1.0), P1 = vec3(0.86, 0.28, 1.0), P2 = vec3(1.0, 0.30, 0.62), P3 = vec3(0.16, 0.95, 0.80);',
+      '    float q = band * 4.0;',
+      '    vec3 pc = q < 1.0 ? mix(P0, P1, q) : q < 2.0 ? mix(P1, P2, q - 1.0) : q < 3.0 ? mix(P2, P3, q - 2.0) : mix(P3, P0, q - 3.0);',
+      '    float ring = smoothstep(0.05, 0.20, ra) * exp(-ra * 1.25);',
+      '    acc += pc * (arms * 0.55 + max(fil, 0.0) * 1.1 + 0.06) * ring * uSwirl * (0.65 + 0.45 * uEn);',
+      '    acc += uSig * pow(0.5 + 0.5 * sin(sp * 3.0 + 1.2), 4.0) * exp(-ra * 4.0) * uSwirl * 0.35;',
+      '  }',
       '  return acc;',
       '}',
       'void main(){',
@@ -239,18 +255,26 @@
       ACc.push(c01(AC[k]));
     }
     var surge = clamp(Math.max(mE * 0.82, entryK), 0, 1);
-    var swirl = clamp(hot * (0.75 + 0.25 * E) + entryK * 0.5, 0, 1);
+    var swirl = clamp(hot * (0.75 + 0.25 * E) + entryK * 0.2, 0, 1);
     var cor = [0, phone ? 0.66 : 0.62];
     var sig = this.flashT > 0 && this.flash !== 'entry' ? this.flashCol : SIGNAL_L;
     this.nT = 0; this.nC = 0;
     var i, x, y, a;
     function toPx(px, py) { return [w / 2 + px * h, h - py * h]; }   /* shader space (x in aspect units, y up) -> CSS px */
+    var cxS = w / 2 + cor[0] * h, cyS = h - cor[1] * h;
+    function swirlPt(pp) {   /* where the cyclone shows a sky point (inverse of the shader's swirl) */
+      if (swirl < 0.01) return pp;
+      var ddx = pp[0] - cxS, ddy = pp[1] - cyS, rr = Math.hypot(ddx, ddy) / h;
+      var rot = swirl * 1.9 * Math.exp(-rr * 2.4) * (1 + 0.25 * Math.sin(PH * 0.5)) + swirl * PH * 0.3 * Math.exp(-rr * 2.6);
+      var cs = Math.cos(rot), sn = Math.sin(rot);
+      return [cxS + ddx * cs - ddy * sn, cyS + ddx * sn + ddy * cs];
+    }
 
     /* motes: photons drifting along each curtain's hem, more and brighter as it aligns */
     var nM = red ? 50 : phone ? 90 : 170, mcount = 0;
     var halfW = aspect / 2;
     for (k = 0; k < 5; k++) {
-      var col = mix(AC[k], SIGNAL_L, surge), I0 = AI[k];
+      var col = mix(AC[k], SIGNAL_L, surge * (1 - 0.85 * swirl)), I0 = AI[k];
       for (i = 0; i < nM; i++) {
         var sd = hsh(i * 7.31 + k * 101.7), sd2 = hsh(i * 3.17 + k * 57.3);
         x = -halfW + ((sd + PH * (0.015 + 0.03 * sd2) * (i % 2 ? 1 : -0.6)) % 1 + 1) % 1 * aspect;
@@ -258,12 +282,7 @@
         var rise = ((sd2 + PH * 0.05 * (0.5 + sd)) % 1);
         y = by + rise * (0.03 + 0.1 * I0) * sd;
         var pp = toPx(x, y);
-        if (hot > 0.02) {   /* in trade the motes are pulled round the corona (cyclone) */
-          var cx = w / 2 + cor[0] * h, cy = h - cor[1] * h, ddx = pp[0] - cx, ddy = pp[1] - cy, rr = Math.hypot(ddx, ddy);
-          var rot = swirl * 1.9 * Math.exp(-rr / h * 2.4) + swirl * PH * 0.3 * Math.exp(-rr / h * 2.6);
-          var cs = Math.cos(-rot), sn = Math.sin(-rot);
-          pp = [cx + ddx * cs - ddy * sn, cy + ddx * sn + ddy * cs];
-        }
+        pp = swirlPt(pp);   /* in trade the motes ride the cyclone */
         var tw = 0.55 + 0.45 * Math.sin(T * (2 + 3 * sd) + i);
         a = (0.10 + 0.55 * I0) * tw * (1 - rise * 0.8);
         this._t1(pp[0], pp[1], mix(col, WHITE, 0.25 * (1 - rise)), a, 2.2 + 2.6 * sd2 * (1 - rise));
@@ -273,13 +292,14 @@
     /* cyclone arms: streams of green photons spiralling into the corona while in trade */
     var cpx = w / 2 + cor[0] * h, cpy = h - cor[1] * h;
     if (hot > 0.02) {
-      var nArm = phone ? 260 : 620;
+      var nArm = phone ? 420 : 1000, PAL = [[128, 92, 255], [220, 72, 255], [255, 78, 160], [40, 240, 200]];
       for (i = 0; i < nArm; i++) {
         var f = ((i * 0.618034) + PH * 0.12 * (1 + E)) % 1;
         var arm = i % 3, rr2 = h * (0.03 + 0.55 * (1 - f));
-        var an = arm * 2.094 + (1 - f) * 4.2 - PH * 0.9 + hsh(i) * 0.25;
+        var an = arm * 2.094 + (1 - f) * 4.6 - PH * 1.4 + hsh(i) * 0.3;
         a = hot * (0.30 + 0.25 * E) * Math.sin(f * Math.PI) * (0.6 + 0.4 * hsh(i * 1.7));
-        this._t1(cpx + Math.cos(an) * rr2 * 1.25, cpy + Math.sin(an) * rr2 * 0.55, i % 5 ? SIGNAL_L : mix(SIGNAL_L, WHITE, 0.6), a, 2 + 2.6 * f);
+        var acol = f > 0.72 ? (i % 5 ? SIGNAL_L : mix(SIGNAL_L, WHITE, 0.6)) : mix(PAL[(i + arm) % 4], SIGNAL_L, Math.max(0, f - 0.5) * 1.4);
+        this._t1(cpx + Math.cos(an) * rr2 * 1.25, cpy + Math.sin(an) * rr2 * 0.55, acol, a * (f > 0.72 ? 1 : 1.25), 2 + 2.6 * f);
       }
     }
     /* decision corona: a soft star that charges with alignment, pulses while in trade (gentle at fire) */
@@ -366,7 +386,7 @@
         gl.uniform1fv(u.uAI, AI); gl.uniform1fv(u.uAB, AB);
         gl.uniform3fv(u.uAC, [].concat.apply([], ACc));
         gl.uniform1f(u.uAct, act); gl.uniform1f(u.uSurge, surge); gl.uniform1f(u.uSwirl, swirl);
-        gl.uniform1f(u.uAmp, amp); gl.uniform1f(u.uAPh, PH);
+        gl.uniform1f(u.uAmp, amp); gl.uniform1f(u.uAPh, PH); gl.uniform1f(u.uEn, E);
         gl.uniform2f(u.uCor, cor[0], cor[1]); gl.uniform3fv(u.uSig, c01(sig));
       }
     };
@@ -384,6 +404,7 @@
       var tw2 = ctx.measureText(txt).width;
       var x0 = align === 'left' ? x : align === 'right' ? x - tw2 : x - tw2 / 2;
       x0 = clamp(x0, phone ? 84 : 96, w - tw2 - 6);   /* keep clear of the timeframe chip rail */
+      if (x0 + tw2 > w - (phone ? 196 : 262) && y < 48) y = 48;   /* and of the LOOK switcher */
       for (var ri = 0; optional && ri < rects.length; ri++) {
         var q3 = rects[ri];
         if (x0 < q3[2] + 8 && x0 + tw2 > q3[0] - 8 && Math.abs(y - q3[1]) < 20) return 0;
@@ -399,17 +420,39 @@
       ctx.fillText(txt, x0, y + 0.5);
       return 1;
     }
-    /* curtain labels on the right, at each curtain's hem */
-    var xr = halfW - (phone ? 0.03 : 0.05) * aspect;
+    /* curtain labels at each curtain's hem; once the cyclone forms they follow the hem through the swirl */
+    var swZone = phone ? 196 : 262, labs = [];
     for (k = 0; k < 5; k++) {
-      var on = al[k] > 0.6;
-      var yy = BASE[k] - 0.05 * hot * (k / 4) + amp * baseY(xr, k, PH);
-      var lp = toPx(xr, yy);
+      var on = al[k] > 0.6, best = null;
+      /* walk the hem from the right edge leftwards; take the first point the cyclone shows in open sky
+         (above the hills, clear of the decision tag and the switcher) */
+      for (var sx = 0; sx < 18; sx++) {
+        var xr = halfW - (phone ? 0.03 : 0.05) * aspect - sx * 0.05 * aspect;
+        var yy = BASE[k] - 0.05 * hot * (k / 4) + amp * baseY(xr, k, PH);
+        var lp = swirlPt(toPx(xr, yy));
+        var okL = lp[0] > w * 0.35 && lp[0] < w - 8 && lp[1] > 52 && lp[1] < hyPx - 40 && Math.hypot(lp[0] - cpx, lp[1] - cpy) > 70;
+        if (okL) { best = lp; break; }
+      }
+      if (!best) { var xf = halfW - 0.05 * aspect; best = [w - 8, clamp(toPx(xf, BASE[k])[1], 52, hyPx - 40)]; }
+      var lyy = clamp(best[1], 52, hyPx - 40);
+      labs.push({ k: k, on: on, x: clamp(best[0], w * 0.45, w - 8), y: lyy });
+    }
+    for (var itl = 0; itl < 12; itl++) {
+      var mvl = false;
+      for (var la = 0; la < 5; la++) for (var lb = la + 1; lb < 5; lb++) {
+        var A = labs[la], Bq = labs[lb];
+        if (Math.abs(A.x - Bq.x) < 150 && Math.abs(A.y - Bq.y) < 22) { var hm = (22 - Math.abs(A.y - Bq.y)) / 2 + 0.5, sg = A.y <= Bq.y ? -1 : 1; A.y = clamp(A.y + sg * hm, 52, hyPx - 20); Bq.y = clamp(Bq.y - sg * hm, 52, hyPx - 20); mvl = true; }
+      }
+      if (!mvl) break;
+    }
+    for (k = 0; k < 5; k++) {
+      var L = labs[k];
+      if (L.x > w - swZone && L.y < 48) L.y = 48 + k * 2;   /* keep clear of the LOOK switcher */
       var hex = 'rgb(' + Math.round(lerp(TFC[k][0], 255, 0.45)) + ',' + Math.round(lerp(TFC[k][1], 255, 0.45)) + ',' + Math.round(lerp(TFC[k][2], 255, 0.45)) + ')';
-      tag(TF_LAB[k] + (phone ? (on ? ' ✓' : '') : on ? ' · aligned' : ' · waiting'), w - 8, lp[1], 'right', hex, on);
+      tag(TF_LAB[k] + (phone ? (L.on ? ' ✓' : '') : L.on ? ' · aligned' : ' · waiting'), L.x, L.y, L.x > w - 60 ? 'right' : 'center', hex, L.on);
     }
     if (!phone || hot > 0.02 || this.step >= 6) tag(hot > 0.02 ? 'IN TRADE · ' + Math.round(this.energyT * 100) + ' energy' : this.step >= 6 ? 'TRIGGER ARMED' : 'DECISION', cpx, cpy - (phone ? 26 : 34), 'center', hot > 0.02 || this.step >= 6 ? '#c9ffdc' : '#ffffff', true);
-    tag(phone ? 'VSA · advisory' : 'VSA WATCHER · advisory ring', w / 2, vCy + vRy + (phone ? 14 : 18), 'center', '#f2f6ff', false);
+    tag(phone ? 'VSA · advisory' : 'VSA WATCHER · advisory ring', w / 2, phone ? vCy - vRy - 12 : vCy + vRy + 18, 'center', '#f2f6ff', false);
     for (var gq = glyphPos.length - 1; gq >= Math.max(0, glyphPos.length - 3); gq--) {
       var G = glyphPos[gq], gt = (G[2].dir === 'bull' ? 'contradicts' : 'confirms');
       tag(gt, G[0], G[1] - 16, 'center', G[2].dir === 'bull' ? '#ffe7a3' : '#ffffff', false, true);

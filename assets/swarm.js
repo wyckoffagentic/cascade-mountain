@@ -357,9 +357,9 @@
     '    col += (vec3(0.05, 0.085, 0.11) + glowC * 0.4) * exp(-abs(uv.y - bank3 - 0.03) * 18.0) * s3 * 0.9;',
     '    vec3 bl3 = texture2D(uB3, uv).rgb;',
     '    col = mix(col, vec3(0.085, 0.11, 0.135) + vec3(0.30, 0.36, 0.42) * lip3 + glowC * lip3, b3 * 0.97);',
-    '    col = mix(col, vec3(0.030, 0.046, 0.060) + (vec3(0.62, 0.70, 0.78) + glowC) * sn3 * 0.7 + bl3 * 0.25, c3);',
+    '    col = mix(col, vec3(0.042, 0.060, 0.076) + (vec3(0.62, 0.70, 0.78) + glowC) * sn3 * 0.7 + bl3 * 0.25, c3);',
     '    col = mix(col, vec3(0.06, 0.08, 0.10) + vec3(0.34, 0.40, 0.47) * lip4 + glowC * lip4, b4);',
-    '    col = mix(col, vec3(0.016, 0.026, 0.036) + (vec3(0.70, 0.78, 0.86) + glowC) * sn4 * 0.8 + bl3 * 0.18, c4);',
+    '    col = mix(col, vec3(0.032, 0.048, 0.062) + (vec3(0.70, 0.78, 0.86) + glowC) * sn4 * 0.85 + bl3 * 0.2, c4);',
     '  }',
     '  float flakes = snowfall(uv, 26.0, 1.3) * 0.55 + snowfall(uv, 14.0, 4.1) * 0.85;',
     '  col += vec3(0.80, 0.88, 0.95) * flakes * (0.10 + 0.22 * uArc) * uLand;',
@@ -1309,6 +1309,7 @@
       var L0 = labs[lq0];
       L0.x = clamp(c0p[0] + L0.ux * L0.r, L0.w / 2 + xMin, w - L0.w / 2 - 6);
       L0.y = clamp(c0p[1] + L0.uy * L0.r, 12, h - 12);
+      if (L0.x + L0.w / 2 > w - (phone ? 196 : 262) && L0.y < 48) L0.y = 48;   /* keep clear of the LOOK switcher */
     }
     for (var it2 = 0; it2 < 16; it2++) {
       var mv2 = false;

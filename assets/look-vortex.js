@@ -469,6 +469,7 @@
       var tw2 = ctx.measureText(txt).width;
       var x0 = align === 'left' ? x : align === 'right' ? x - tw2 : x - tw2 / 2;
       x0 = clamp(x0, phone ? 84 : 96, w - tw2 - 6);   /* keep clear of the timeframe chip rail */
+      if (x0 + tw2 > w - (phone ? 196 : 262) && y < 48) y = 48;   /* and of the LOOK switcher */
       /* optional labels give way to anything already placed (min gap 8px) */
       for (var ri = 0; optional && ri < rects.length; ri++) {
         var q3 = rects[ri];
