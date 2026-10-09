@@ -29,6 +29,13 @@ No build step and no CDN: fonts (Manrope, Geist Mono, SIL OFL 1.1) are vendored 
 - Gold is filled before Nasdaq on the same bar, so on a tie Nasdaq gets the headroom.
 - The P&L panel's "% at risk" uses the same realized-equity basis.
 
+## Setup score (spec 7d, EMA-zone rejection)
+
+- `emaZone()` in `assets/engine.js`: on the weakness bar's own timeframe, EMA10 < EMA20 and EMA20 is below its value 5 bars earlier. The high reaches the EMA10–EMA20 band or comes within 0.25×ATR14 below EMA10, and the close is back below both EMAs.
+- Score = 1 + [30m weakness bar in the zone] + [15m weakness bar in the zone]. A score of 2 or more is tagged "EMA rejection (A+)".
+- Shown as the conditions row "EMA 10/20 zone" (full name in the tooltip: EMA 10/20 rejection zone (30m/15m)), with `A+ n/3` when it's on. The entry and exit tape lines also carry the score.
+- It is a label only. It never changes entries, stops or size, and the tapes for seeds 1/7/42/99 are byte-identical to the build before it.
+
 ## Layout
 
 | File | Role |

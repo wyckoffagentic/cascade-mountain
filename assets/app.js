@@ -261,7 +261,7 @@
     $('meter').style.width = Math.round(fi.conf * 100) + '%';
     var checks = $('checks');
     checks.innerHTML = fi.checklist.map(function (c) {
-      return '<li class="' + (c.on ? 'on' : '') + '"><i>' + (c.on ? '✓' : '') + '</i>' + c.label + '</li>';
+      return '<li class="' + (c.on ? 'on' : '') + '"' + (c.short ? ' title="' + c.label + '"' : '') + '><i>' + (c.on ? '✓' : '') + '</i>' + (c.short || c.label) + (c.on && c.note ? ' · ' + c.note : '') + '</li>';
     }).join('');
     var on = {};
     fi.checklist.forEach(function (c) { on[c.id] = c.on; });

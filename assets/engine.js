@@ -584,6 +584,18 @@
     return null;
   }
 
+  // Spec 7d, EMA-zone rejection. A LABEL ONLY: it never changes entries, stops or size.
+  // Downtrend on the bar's own timeframe: EMA10 < EMA20 and EMA20 below its value 5 bars earlier.
+  // In the zone: the high reaches the EMA10-EMA20 band or comes within 0.25 x ATR14 below EMA10, and the close is back below both.
+  const APLUS = 'EMA rejection (A+)';
+  function emaZone(book, i) {
+    const bars = book.bars, b = bars[i];
+    if (!b || i < 5 || b.e10 == null || b.e20 == null || bars[i - 5].e20 == null) return false;
+    const down = b.e10 < b.e20 && b.e20 < bars[i - 5].e20;
+    const reach = b.atr == null ? b.h >= b.e10 : b.h >= b.e10 - 0.25 * b.atr;
+    return !!(down && reach && b.c < b.e10 && b.c < b.e20);
+  }
+
   function ndFails(book, i) {
     const bars = book.bars;
     const fails = [];
@@ -630,6 +642,7 @@
       { id: 'ut', label: 'HTF upthrust / HUT', on: false },
       { id: 'w30', label: '30m weakness', on: false },
       { id: 'w15', label: '15m weakness', on: false },
+      { id: 'ema', label: 'EMA 10/20 rejection zone (30m/15m)', short: 'EMA 10/20 zone', on: false, note: '' },
       { id: 'w5', label: '5m weakness', on: false },
       { id: 'conf', label: '5m confirm / trigger', on: false },
       { id: 'entry', label: 'Short entry', on: false },
@@ -640,6 +653,19 @@
 
   function checkOn(inst, id, on) {
     inst.checklist.forEach(function (c) { if (c.id === id) c.on = on; });
+  }
+
+  // Setup score (spec 7d): 1 + [30m weakness bar in the EMA zone] + [15m weakness bar in the EMA zone]; >= 2 is A+.
+  function setScore(inst) {
+    const cx = inst.cx;
+    const s = 1 + (cx.w30 && cx.w30.zone ? 1 : 0) + (cx.w15 && cx.w15.zone ? 1 : 0);
+    cx.score = s;
+    inst.checklist.forEach(function (c) {
+      if (c.id !== 'ema') return;
+      c.on = s >= 2;
+      c.note = (s >= 2 ? 'A+ ' : '') + s + '/3';
+    });
+    return s;
   }
 
   Inst.prototype._setState = function (s, conf) {
@@ -748,12 +774,14 @@
     const w = isWeakness(this.m30, this.m30.bars.length - 1);
     if (w) {
       this.cx.stage = 'w15';
-      this.cx.w30 = { end: barEnd(bar, 30), h: bar.h, t: bar.t, kind: w };
+      const z30 = emaZone(this.m30, this.m30.bars.length - 1);
+      this.cx.w30 = { end: barEnd(bar, 30), h: bar.h, t: bar.t, kind: w, zone: z30 };
       this.cx.w15Seen = 0;
       checkOn(this, 'w30', true);
+      setScore(this);
       this._setState('CONFIRMING', 0.64);
       this.lastWeak = '30m';
-      events.push(this._ev('weak', '30m weakness (' + w + ') inside the window. High ' + fmtPx(this.spec, bar.h) + ', close ' + fmtPx(this.spec, bar.c) + ', CLV ' + clv(bar).toFixed(2) + '. Next: 15m.'));
+      events.push(this._ev('weak', '30m weakness (' + w + ') inside the window. High ' + fmtPx(this.spec, bar.h) + ', close ' + fmtPx(this.spec, bar.c) + ', CLV ' + clv(bar).toFixed(2) + '.' + (z30 ? ' Rejected at the 30m EMA 10/20 zone (+1 setup score).' : '') + ' Next: 15m.'));
       return;
     }
     if (this.cx.w30Seen >= 4) this._killCascade('Cascade expired: no 30m weakness within 4 bars of the ' + this.cx.tf + ' upthrust.', events);
@@ -770,12 +798,14 @@
     const w = isWeakness(this.m15, this.m15.bars.length - 1);
     if (w) {
       this.cx.stage = 'w5';
-      this.cx.w15 = { end: barEnd(bar, 15), h: bar.h, kind: w };
+      const z15 = emaZone(this.m15, this.m15.bars.length - 1);
+      this.cx.w15 = { end: barEnd(bar, 15), h: bar.h, kind: w, zone: z15 };
       this.cx.w5Seen = 0;
       checkOn(this, 'w15', true);
+      const sc = setScore(this);
       this._setState('CONFIRMING', 0.74);
       this.lastWeak = '15m';
-      events.push(this._ev('weak', '15m weakness (' + w + '). Close ' + fmtPx(this.spec, bar.c) + ' CLV ' + clv(bar).toFixed(2) + '. Dropping to 5m.'));
+      events.push(this._ev('weak', '15m weakness (' + w + '). Close ' + fmtPx(this.spec, bar.c) + ' CLV ' + clv(bar).toFixed(2) + '.' + (z15 ? ' Rejected at the 15m EMA 10/20 zone (+1 setup score).' : '') + ' Setup score ' + sc + '/3' + (sc >= 2 ? ' (' + APLUS + ')' : '') + '. Dropping to 5m.'));
       return;
     }
     if (this.cx.w15Seen >= 4) this._killCascade('Cascade expired: no 15m weakness within 4 bars.', events);
@@ -1018,7 +1048,8 @@
       entry: entry, stop: stop, initStop: stop, R: R, riskUsd: sz.riskUsd,
       target: target, targetWhy: why, swing: tg.swing, psl: tg.psl, r2: r2, r3: r3,
       entryI: i, entryT: bar.t, lowest: bar.l, trail: null, trail0: null, trailOn: false,
-      atr: this.atr, setupKind: this.pending.setup.kind || 'UT', exitNext: false
+      atr: this.atr, setupKind: this.pending.setup.kind || 'UT', exitNext: false,
+      score: (this.cx && this.cx.score) || 1, tag: ((this.cx && this.cx.score) || 1) >= 2 ? APLUS : ''
     };
     this.lines = { stop: stop, target: target, swing: tg.swing, psl: (tg.psl != null && tg.psl < entry) ? tg.psl : null, r2: r2, r3: r3 };
     this.markers.entry = { i: i, px: entry, t: bar.t };
@@ -1034,7 +1065,8 @@
       + '. Stop ' + fmtPx(spec, stop) + ' (' + Math.round(sz.dist / spec.tick) + ' ticks, risk ' + fmtUsd(-sz.riskUsd, 0).replace('+', '-')
       + ', ' + (sz.riskUsd / equity * 100).toFixed(2) + '% of account).'
       + (cap && cap.capped ? ' Sized down to the remaining risk headroom (' + (riskPct * 100).toFixed(2) + '% left under the ' + (TOTAL_RISK_CAP * 100).toFixed(2) + '% total cap).' : '')
-      + ' Target ' + fmtPx(spec, target) + ' (' + why + '). 2R ' + fmtPx(spec, r2) + ' (' + fmtUsd(d2, 0) + ') · 3R ' + fmtPx(spec, r3) + ' (' + fmtUsd(d3, 0) + ').'));
+      + ' Target ' + fmtPx(spec, target) + ' (' + why + '). 2R ' + fmtPx(spec, r2) + ' (' + fmtUsd(d2, 0) + ') · 3R ' + fmtPx(spec, r3) + ' (' + fmtUsd(d3, 0) + ').'
+      + ' Setup score ' + this.pos.score + '/3' + (this.pos.tag ? ' · ' + this.pos.tag : '') + '.'));
   };
 
   Inst.prototype._exit = function (bar, i, px, reason, events) {
@@ -1047,12 +1079,13 @@
     const tr = {
       inst: spec.id, product: p.product, qty: p.qty, entry: p.entry, exit: px,
       entryT: p.entryT, exitT: bar.t, pnl: pnl, r: rMul, reason: reason,
-      entryI: p.entryI, exitI: i, riskUsd: p.riskUsd
+      entryI: p.entryI, exitI: i, riskUsd: p.riskUsd, score: p.score || 1, tag: p.tag || ''
     };
     this.trades.push(tr);
     this.markers.exit = { i: i, px: px, t: bar.t, reason: reason, pnl: pnl };
     events.push(this._ev(pnl >= 0 ? 'win' : 'loss', 'EXIT ' + p.qty + ' ' + p.product + ' @ ' + fmtPx(spec, px)
-      + ' — ' + reason + '. ' + fmtUsd(pnl, 0) + ' (' + (rMul >= 0 ? '+' : '') + rMul.toFixed(2) + 'R).'));
+      + ' — ' + reason + '. ' + fmtUsd(pnl, 0) + ' (' + (rMul >= 0 ? '+' : '') + rMul.toFixed(2) + 'R).'
+      + (p.tag ? ' ' + p.tag + ', score ' + p.score + '/3.' : ' Setup score ' + (p.score || 1) + '/3.')));
     this.flash = pnl >= 0 ? 'win' : 'loss';
     this.pos = null;
     this.pending = null;
@@ -1251,6 +1284,6 @@
   return {
     SPECS: SPECS, createWorld: createWorld, Replay: Replay, parseBars: parseBars,
     fmtPx: fmtPx, fmtUsd: fmtUsd, fmtZone: fmtZone, globexState: globexState, clv: clv,
-    roundTick: roundTick
+    roundTick: roundTick, emaZone: emaZone, APLUS: APLUS
   };
 });
