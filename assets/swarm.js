@@ -1304,12 +1304,12 @@
       if (!moved) break;
     }
     /* clamp into the stage, then separate any overlaps the clamp re-created (vertical moves, min gap) */
-    var xMin = phone ? 84 : 96;
+    var xMin = 8;
     for (var lq0 = 0; lq0 < labs.length; lq0++) {
       var L0 = labs[lq0];
       L0.x = clamp(c0p[0] + L0.ux * L0.r, L0.w / 2 + xMin, w - L0.w / 2 - 6);
       L0.y = clamp(c0p[1] + L0.uy * L0.r, 12, h - 12);
-      if (L0.x + L0.w / 2 > w - (phone ? 196 : 262) && L0.y < 48) L0.y = 48;   /* keep clear of the LOOK switcher */
+      if (L0.x + L0.w / 2 > w - (phone ? 196 : 400) && L0.y < (phone ? 48 : 88)) L0.y = phone ? 48 : 88;   /* keep clear of the LOOK switcher + temp speed tool */
     }
     for (var it2 = 0; it2 < 16; it2++) {
       var mv2 = false;

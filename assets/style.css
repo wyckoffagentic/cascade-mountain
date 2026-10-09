@@ -508,3 +508,50 @@ input[type=number]{width:78px}
   .looksw .k{display:none}
   .looksw .grp button{padding:3px 6px;font-size:10.5px}
 }
+
+/* ---------- TEMP replay speed tool (dev aid; in the stage, reachable on phone without scrolling) ---------- */
+.speedtool{position:absolute;z-index:6;top:46px;right:10px;display:flex;align-items:center;gap:4px;padding:3px;
+  border:1px dashed rgba(255,217,138,.55);border-radius:6px;background:rgba(5,9,14,.7);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.speedtool .tmp{font-family:var(--m);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ffd98a;padding:0 4px}
+.speedtool button{background:transparent;border:0;border-radius:4px;color:var(--snow);font-size:11px;line-height:1.35;padding:3px 6px;font-variant-numeric:tabular-nums}
+.speedtool button:hover{background:rgba(243,248,251,.10)}
+.speedtool .sts{display:inline-flex}
+.speedtool .sts button.on{background:var(--snow);color:#071018}
+.speedtool .stplay{min-width:26px}
+.speedtool .stjump{border:1px solid var(--line2)}
+@media (max-width:620px){
+  .speedtool{top:auto;right:auto;left:8px;bottom:8px;flex-wrap:wrap;width:194px;gap:2px}
+  .speedtool .sts{order:3;width:100%;justify-content:space-between}
+  .speedtool .sts button{padding:3px 4px;font-size:10.5px}
+  .speedtool .stjump{margin-left:auto;font-size:10.5px}
+}
+/* timeframe legend carries the alignment state the old chip rail showed: tick + brighter when aligned, outline when current */
+.tflegend span[data-tf]{opacity:.78;padding:1px 6px;border-radius:99px;border:1px solid transparent;transition:opacity .3s}
+.tflegend span[data-tf].lit{opacity:1;color:#fff;font-weight:700}
+.tflegend span[data-tf].lit:after{content:"✓";font-size:10px;margin-left:-2px}
+.tflegend span[data-tf].hot{border-color:color-mix(in srgb,var(--c) 80%,#fff);background:color-mix(in srgb,var(--c) 18%,transparent)}
+@media (max-width:800px){
+  /* phone: the Mountain stage has no in-stage timeframe labels, so show the compact legend (timeframes only) */
+  html[data-look=mountain] .tflegend{display:flex;left:8px;right:auto;transform:none;bottom:70px;gap:3px;font-size:10.5px}
+  html[data-look=mountain] .tflegend .sig,html[data-look=mountain] .tflegend .ovr{display:none}
+}
+/* chart timeframe picker (moved from the old chip rail) */
+.tfpick{display:inline-flex;gap:2px;margin-left:6px}
+.tfpick button{background:transparent;border:1px solid var(--line2);border-radius:4px;color:var(--snow);font-size:11px;padding:1px 6px}
+.tfpick button.on{background:var(--snow);color:#071018;border-color:var(--snow)}
+
+/* ---------- header sky (shared, every look): aurora behind the title + ridgeline, gust/glint layer in front ---------- */
+.app{position:relative}
+.headsky{position:absolute;top:0;left:calc(50% - 50vw);width:100vw;pointer-events:none;z-index:0}
+.headsky canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.headsky .hs-back{z-index:0;-webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.7),#000 40%,#000 94%,transparent);mask-image:linear-gradient(180deg,rgba(0,0,0,.7),#000 40%,#000 94%,transparent)}
+.headsky .hs-front{z-index:3}
+.head{position:relative;z-index:1}
+.ridgeline{z-index:2}
+/* wordmark sun glint: a warm specular band sweeps across the letters */
+.wm b{background-image:linear-gradient(105deg,transparent 41%,rgba(150,215,255,.95) 46%,#fff 49%,#fff 50.5%,rgba(255,196,110,1) 53%,transparent 58%),linear-gradient(var(--snow),var(--snow));background-repeat:no-repeat;background-size:260% 100%,100% 100%;background-position:120% 0,0 0;-webkit-background-clip:text;background-clip:text;color:transparent}
+.wm b span{color:transparent}
+.wm b.glint{animation:wmGlint 1.5s ease-in-out}
+@keyframes wmGlint{from{background-position:120% 0,0 0}to{background-position:-20% 0,0 0}}
+body.rm .wm b{animation:none!important}
+@media (prefers-reduced-motion:reduce){.wm b{animation:none!important}}

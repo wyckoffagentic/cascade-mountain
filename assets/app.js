@@ -6,7 +6,13 @@
   var motionOn = !mq.matches;
   var soundOn = false;
   var playing = true;
-  var speed = 8;
+  var speed = 1;
+  /* replay pace (visual timing only): 1x = 340 ms per bar; bars while a setup is confirming or a trade is on play
+     2.5x slower so the build, fire and in-trade phase stay watchable. One full cycle is ~71 s at 1x. */
+  var BAR_MS = 340, DWELL = 2.5;
+  function inSetup() {
+    return [replay.gold, replay.nasdaq].some(function (x) { return x.pos || x.state === 'CONFIRMING' || x.state === 'IN TRADE' || x.state === 'TRAILING'; });
+  }
   var focus = 'both';
   var follow = 'gold';
   var chartTf = '5m';
@@ -204,7 +210,7 @@
   function tickType(dt) {
     if (!logQueue.length) return;
     var el = $('log');
-    var speedUp = speed >= 20 || !motion();
+    var speedUp = speed >= 10 || !motion();
     if (speedUp) {
       logQueue.splice(0, 30).forEach(function (e) { el.appendChild(logNode(e, true)); });
       while (el.children.length > 24) el.removeChild(el.firstChild);
@@ -266,6 +272,12 @@
       btn.classList.toggle('hot', id === tf);
       var done = (id === htf && on.nd) || (id === '30m' && on.w30) || (id === '15m' && on.w15) || (id === '5m' && (on.w5 || on.entry));
       btn.classList.toggle('done', done && id !== tf);
+    });
+    var tfNow = ladderTf(fi);
+    document.querySelectorAll('.tflegend span[data-tf]').forEach(function (sp) {
+      var id = sp.dataset.tf;
+      var lit = (id === htf && on.nd) || (id === '30m' && on.w30) || (id === '15m' && on.w15) || (id === '5m' && (on.w5 || on.conf || on.entry));
+      sp.classList.toggle('lit', !!lit); sp.classList.toggle('hot', id === tfNow);
     });
     var activeBtn = document.querySelector('#ladder button.hot');
     var rail = $('railDot');
@@ -436,6 +448,35 @@
     var b = $('btnPlay');
     b.textContent = playing ? 'Pause' : 'Play';
     b.setAttribute('aria-pressed', playing ? 'true' : 'false');
+    var t = $('stPlay');
+    if (t) { t.textContent = playing ? '❚❚' : '▶'; t.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+  }
+  function setSpeed(x) {
+    speed = x;
+    ['speeds', 'stSpeeds'].forEach(function (id) {
+      var g = $(id); if (!g) return;
+      g.querySelectorAll('button[data-sp]').forEach(function (b) { b.classList.toggle('on', +b.dataset.sp === x); });
+    });
+  }
+  /* bar index of the next CONFIRMING phase, found on a private copy of the replay (deterministic, never touches the live one) */
+  function nextConfirmBar() {
+    var probe = new DMF.Replay(world, { equity: equity0, risk: risk });
+    probe.risk = replay.risk; probe.equity0 = replay.equity0;
+    while (probe.i < replay.i && probe.step()) { /* catch up */ }
+    while (probe.step()) {
+      if (probe.gold.state === 'CONFIRMING' || probe.nasdaq.state === 'CONFIRMING') return probe.i;
+    }
+    return -1;
+  }
+  /* fast-forward to ~14 bars before the next confirming phase (so the build, fire and in-trade phase all play), then play */
+  function jumpToSetup() {
+    var c = nextConfirmBar();
+    if (c < 0) { boot(true); c = nextConfirmBar(); }
+    if (c >= 0) {
+      var target = Math.max(replay.i, c - 14);
+      if (target > replay.i) seekUntil(function () { return replay.i >= target; }, 5000);
+    }
+    acc = 0; playing = true; setPlayLabel();
   }
 
   function blip(freq, dur) {
@@ -574,14 +615,14 @@
     var htf = (fi.cx && fi.cx.tf) || '2h';
     var hot = ladderTf(fi);
     return ['4h', '2h', '30m', '15m', '5m'].map(function (tf) {
-      var el = document.querySelector('#ladder button[data-tf="' + tf + '"]');
-      var r = el.getBoundingClientRect();
+      var ai = ['4h', '2h', '30m', '15m', '5m'].indexOf(tf);
+      var ax = 4, ay = cr.height * (0.36 + 0.085 * ai);
       var lit = tf === '4h' ? (htf === '4h' && !!on.nd)
         : tf === '2h' ? (htf === '2h' && !!on.nd)
         : tf === '30m' ? !!on.w30
         : tf === '15m' ? !!on.w15
         : !!(on.w5 || on.conf || on.entry);
-      return { tf: tf, x: (r.left + r.width / 2) - cr.left, y: (r.top + r.height / 2) - cr.top, lit: lit, hot: tf === hot };
+      return { tf: tf, x: ax, y: ay, lit: lit, hot: tf === hot };
     });
   }
 
@@ -620,10 +661,9 @@
     var cr = canvas.getBoundingClientRect();
     var tf = ladderTf(focusInst());
     if (!tf) return { x: cr.width * 0.5, y: cr.height * 0.5, k: 0.004 };
-    var el = document.querySelector('#ladder button[data-tf="' + tf + '"]');
-    if (!el) return null;
-    var r = el.getBoundingClientRect();
-    return { x: (r.left + r.width / 2) - cr.left, y: (r.top + r.height / 2) - cr.top, k: 0.018 };
+    var ai = ['4h', '2h', '30m', '15m', '5m'].indexOf(tf);
+    if (ai < 0) return null;
+    return { x: 4, y: cr.height * (0.36 + 0.085 * ai), k: 0.018 };
   }
 
   function frame(now) {
@@ -632,9 +672,10 @@
     if (playing) {
       acc += dt * 1000 * speed;
       var budget = 0;
-      var gap = 720;
+      var gap = BAR_MS * (inSetup() ? DWELL : 1);
       while (acc >= gap && budget < 8) {
         acc -= gap;
+        gap = BAR_MS * (inSetup() ? DWELL : 1);
         if (!doStep()) break;
         budget++;
       }
@@ -819,9 +860,22 @@
       playing = true; setPlayLabel(); boot(true);
     };
     $('speeds').onclick = function (e) {
+      var b = e.target.closest('button'); if (!b || !b.dataset.sp) return;
+      setSpeed(+b.dataset.sp);
+    };
+    /* TEMP speed tool in the stage: same state as the controls bar (kept in sync) */
+    $('stSpeeds').onclick = function (e) {
       var b = e.target.closest('button'); if (!b) return;
-      speed = +b.dataset.sp;
-      $('speeds').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      setSpeed(+b.dataset.sp);
+    };
+    $('stPlay').onclick = function () { playing = !playing; setPlayLabel(); };
+    $('stJump').onclick = function () { jumpToSetup(); };
+    $('tfPick').onclick = function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      chartTf = b.dataset.tf;
+      chartG.setTf(chartTf); chartN.setTf(chartTf);
+      $('tfPick').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      renderDom();
     };
     $('focus').onclick = function (e) {
       var b = e.target.closest('button'); if (!b) return;
@@ -843,12 +897,6 @@
       this.textContent = soundOn ? 'Sound on' : 'Sound off';
       this.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
     };
-    $('ladder').onclick = function (e) {
-      var b = e.target.closest('button'); if (!b) return;
-      chartTf = b.dataset.tf;
-      chartG.setTf(chartTf); chartN.setTf(chartTf);
-      renderDom();
-    };
     $('risk').oninput = function () {
       $('riskPctLab').textContent = (+this.value).toFixed(2) + '%';
       risk = Math.min(0.01, (+this.value) / 100);
@@ -868,7 +916,9 @@
       goto: gotoPhase,
       play: function () { playing = true; setPlayLabel(); },
       pause: function () { playing = false; setPlayLabel(); },
-      setSpeed: function (x) { speed = x; },
+      setSpeed: function (x) { setSpeed(x); },
+      jumpToSetup: function () { jumpToSetup(); return replay.i; },
+      speed: function () { return speed; },
       step: function () { playing = false; doStep(); },
       tick: function (n, ms) {
         for (var k = 0; k < (n || 1); k++) { virtualNow += (ms || 1000 / 30); frame(virtualNow); }

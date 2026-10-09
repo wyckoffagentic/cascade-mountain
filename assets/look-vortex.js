@@ -468,8 +468,8 @@
       ctx.font = (bold ? '700 ' : '600 ') + fs + 'px "Geist Mono", ui-monospace, monospace';
       var tw2 = ctx.measureText(txt).width;
       var x0 = align === 'left' ? x : align === 'right' ? x - tw2 : x - tw2 / 2;
-      x0 = clamp(x0, phone ? 84 : 96, w - tw2 - 6);   /* keep clear of the timeframe chip rail */
-      if (x0 + tw2 > w - (phone ? 196 : 262) && y < 48) y = 48;   /* and of the LOOK switcher */
+      x0 = clamp(x0, 8, w - tw2 - 6);
+      if (x0 + tw2 > w - (phone ? 196 : 400) && y < (phone ? 48 : 88)) y = phone ? 48 : 88;   /* keep clear of the LOOK switcher (+ temp speed tool on desktop) */
       /* optional labels give way to anything already placed (min gap 8px) */
       for (var ri = 0; optional && ri < rects.length; ri++) {
         var q3 = rects[ri];

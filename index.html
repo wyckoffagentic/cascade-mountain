@@ -65,20 +65,18 @@
         <div class="enrow"><span class="enlab">Weakness energy</span><b id="energyNum">0</b></div>
         <div class="entrack"><i id="energyBar"></i></div>
       </div>
-      <div class="ladder" id="ladder" aria-label="Timeframe cascade">
-        <div class="rail" aria-hidden="true"><i id="railDot"></i></div>
-        <button type="button" data-tf="4h" style="--tf:var(--tf4h)">4H</button>
-        <button type="button" data-tf="2h" style="--tf:var(--tf2h)">2H</button>
-        <button type="button" data-tf="30m" style="--tf:var(--tf30)">30m</button>
-        <button type="button" data-tf="15m" style="--tf:var(--tf15)">15m</button>
-        <button type="button" data-tf="5m" style="--tf:var(--tf5)">5m</button>
+      <div class="speedtool" id="speedTool" role="group" aria-label="Replay speed (temporary dev tool)">
+        <span class="tmp">temp</span>
+        <button type="button" class="stplay" id="stPlay" aria-label="Pause">❚❚</button>
+        <div class="sts" id="stSpeeds"><button type="button" data-sp="0.5">0.5×</button><button type="button" data-sp="1" class="on">1×</button><button type="button" data-sp="2">2×</button><button type="button" data-sp="5">5×</button><button type="button" data-sp="10">10×</button><button type="button" data-sp="30">30×</button></div>
+        <button type="button" class="stjump" id="stJump" title="Fast-forward to just before the next confirming phase">Next setup ⏭</button>
       </div>
       <div class="stageflags">
         <div class="deeptag" id="deepTag" hidden>DEEP ZONE</div>
         <div class="vsaflag" id="vsaFlag" hidden>VSA ⚑ contradiction</div>
       </div>
       <div class="tflegend" aria-label="Timeframe colours">
-        <span style="--c:var(--tf4h)">4H</span><span style="--c:var(--tf2h)">2H</span><span style="--c:var(--tf30)">30m</span><span style="--c:var(--tf15)">15m</span><span style="--c:var(--tf5)">5m</span><span class="sig" style="--c:var(--signal)">aligned signal</span><span class="ovr" style="--c:var(--pearl)">VSA overseer</span>
+        <span data-tf="4h" style="--c:var(--tf4h)">4H</span><span data-tf="2h" style="--c:var(--tf2h)">2H</span><span data-tf="30m" style="--c:var(--tf30)">30m</span><span data-tf="15m" style="--c:var(--tf15)">15m</span><span data-tf="5m" style="--c:var(--tf5)">5m</span><span class="sig" style="--c:var(--signal)">aligned signal</span><span class="ovr" style="--c:var(--pearl)">VSA overseer</span>
       </div>
     </section>
 
@@ -128,11 +126,7 @@
     </div>
     <div class="grp seg" id="speeds" role="group" aria-label="Speed">
       <span class="gl">Speed</span>
-      <button type="button" data-sp="1">1×</button>
-      <button type="button" data-sp="2">2×</button>
-      <button type="button" data-sp="5">5×</button>
-      <button type="button" data-sp="8" class="on">8×</button>
-      <button type="button" data-sp="20">20×</button>
+      <button type="button" data-sp="0.5">0.5×</button><button type="button" data-sp="1" class="on">1×</button><button type="button" data-sp="2">2×</button><button type="button" data-sp="5">5×</button><button type="button" data-sp="10">10×</button><button type="button" data-sp="30">30×</button>
       <button type="button" data-sp="50">50×</button>
     </div>
     <div class="grp seg" id="focus" role="group" aria-label="Instrument focus">
@@ -170,7 +164,7 @@
         <div class="statechip" id="st-nasdaq">SCANNING</div>
       </div>
       <div class="cvwrap"><canvas id="c-nasdaq"></canvas><div class="tip" id="tip-nasdaq" hidden></div></div>
-      <div class="legend"><span>Gold contract: tick 0.10 = $10 · micro $1</span><span>Nasdaq contract: tick 0.25 = $5 · micro $0.50</span><span id="tfLab">chart 5m</span></div>
+      <div class="legend"><span>Gold contract: tick 0.10 = $10 · micro $1</span><span>Nasdaq contract: tick 0.25 = $5 · micro $0.50</span><span id="tfLab">chart 5m</span><span class="tfpick" id="tfPick" role="group" aria-label="Chart timeframe"><button type="button" data-tf="4h">4H</button><button type="button" data-tf="2h">2H</button><button type="button" data-tf="30m">30m</button><button type="button" data-tf="15m">15m</button><button type="button" data-tf="5m" class="on">5m</button></span></div>
     </article>
   </section>
 
@@ -212,6 +206,7 @@
 <script src="assets/look-aurora.js"></script>
 <script src="assets/vsa-watcher.js"></script>
 <script src="assets/bg.js"></script>
+<script src="assets/headsky.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

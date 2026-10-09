@@ -39,6 +39,7 @@ No build step and no CDN: fonts (Manrope, Geist Mono, SIL OFL 1.1) are vendored 
 | `assets/swarm.js` | Orbital field: timeframe lanes, evidence lines, rings, signal merge, deep-zone bristle, VSA overseer halo |
 | `assets/vsa-watcher.js` | Advisory VSA module. Subscribes to closed bars, publishes findings, never touches the trade |
 | `assets/bg.js` | Low-contrast star field (static with reduced motion) |
+| `assets/headsky.js` | Shared header sky: live aurora behind the title and ridgeline, an occasional snow gust and wordmark glint |
 | `assets/app.js` | Wiring, DOM, replay controls, `window.__DMF` test hooks |
 | `data/custom/` | Drop-in real bars later (see `SCHEMA.md`). Off until files exist |
 
@@ -106,6 +107,23 @@ Three stage themes over identical logic and an identical page shell: the engine,
 **Intensity arc (all looks):** intensity builds through confirming and trigger armed, peaks at fire, and stays high for the whole trade, scaled by weakness energy. It unwinds at exit or invalidation (`arcTarget` in `swarm.js`).
 - Mountain: a faster, brighter swarm, a pulsing core and bloom, snow whipping up, pines swaying harder, and an alpenglow surge on the peaks.
 - Vortex: faster rotation, a rising green photon column, and pulse waves running down the rings.
-- Aurora: brighter, quicker curtains, a gentle green surge at fire, then a sustained cyclone: signal green at the eye, with violet, magenta, pink and teal arms and filaments whipping round it; the timeframe labels follow their curtains through the swirl.
+- Aurora: brighter, quicker curtains and a surge with signal green leading at fire. For the whole trade the curtains themselves blaze: brighter, taller and denser, faster ripple and shimmer, colour flowing through green, violet and pink, pulsing surges across more of the sky, and sparks streaming up the curtains. Hue-preserving compression keeps it readable (no white-out), and the timeframe labels stay on their curtains. It calms back down at exit. There is no spiral or swirl.
 
 Under reduced motion every look shows a static frame at the same intensity.
+
+## Timeframe labels (no chip rail)
+The old left timeframe chip rail is gone in every look. Its alignment state now shows on the labels: a tick and a brighter label when aligned, and an outline on the current tier in the legend. Phone Mountain shows a compact timeframe legend, because Vortex and Aurora already label their tiers in the stage. The chart timeframe is picked with the small buttons in the chart legend.
+
+## Replay pace and the TEMP speed tool
+- 1× = 340 ms per bar, held 2.5× longer while any instrument is confirming or in a trade (visual timing only; it never changes which bars are computed).
+- One full cycle (scanning → confirming → fire → trailing → exit) takes about 70 s at 1× and about 7 s at 10×.
+- The floating speed tool, tagged **temp**, sits in the stage: top right on desktop, bottom left on phone. It has play/pause, 0.5×, 1×, 2×, 5×, 10× and 30×, and **Next setup**. Next setup looks ahead on a private copy of the replay, then fast-forwards the live replay to just before the next confirming phase.
+- The tool stays in sync with the speed buttons in the controls bar. Tapes are identical at every speed and after a jump.
+
+## Header sky (shared, every look)
+- One low-res canvas paints a living aurora (green, violet and pink curtains, slowly drifting and breathing) behind the title and the snow-capped ridgeline.
+- A front canvas draws only during events:
+  - a snow gust across the ridge every 45–90 s (random, a few seconds long);
+  - a glint on the snow caps every 20–40 s, alongside a specular sweep across the "Cascade Mountain" wordmark.
+- The sky pauses when the header is off-screen (IntersectionObserver) or the tab is hidden.
+- Reduced motion: one static aurora frame, with no gust and no glint.
