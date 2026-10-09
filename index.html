@@ -12,6 +12,12 @@
 </head>
 <body>
 <canvas id="bg" aria-hidden="true"></canvas>
+<script>
+/* pick the look before first paint: ?look= > remembered choice > mountain */
+(function () { var L = ['mountain', 'vortex', 'aurora'], m = /[?&]look=([a-z]+)/.exec(location.search), v = m && m[1];
+  try { if (L.indexOf(v) < 0) v = localStorage.getItem('cm.look'); } catch (e) {}
+  document.documentElement.setAttribute('data-look', L.indexOf(v) < 0 ? 'mountain' : v); })();
+</script>
 <div class="simban" role="status">SIMULATED DATA — not real prices <i>· demo scale · no broker · no orders</i></div>
 <div class="app">
   <header class="head">
@@ -29,6 +35,12 @@
         <small>DMF futures · simulated replay</small>
       </div>
       <div class="badges"><span class="badge sim">SIMULATED</span><span class="badge" id="modeBadge">DEMO / REPLAY</span></div>
+    </div>
+    <div class="looksw" role="radiogroup" aria-label="Look">
+      <span class="k">Look</span>
+      <div class="grp" id="lookSw">
+        <button type="button" role="radio" data-look="mountain" aria-checked="true">Mountain</button><button type="button" role="radio" data-look="vortex" aria-checked="false">Vortex</button><button type="button" role="radio" data-look="aurora" aria-checked="false">Aurora</button>
+      </div>
     </div>
     <div class="clocks">
       <div class="pill" id="pillSim"><span class="k">Sim tape · Sydney</span><span class="v" id="simClock">—</span></div>
@@ -196,6 +208,8 @@
 <script src="assets/chart.js"></script>
 <script src="assets/swarm-lite.js"></script>
 <script src="assets/swarm.js"></script>
+<script src="assets/look-vortex.js"></script>
+<script src="assets/look-aurora.js"></script>
 <script src="assets/vsa-watcher.js"></script>
 <script src="assets/bg.js"></script>
 <script src="assets/app.js"></script>

@@ -744,10 +744,51 @@
     return null;
   }
 
+  /* ---------- LOOK switcher: Mountain (orbit swarm) · Vortex (cascade funnel) · Aurora (curtains) ----------
+     Only the stage renderer and the chrome theme change; engine, sim, VSA watcher, risk and P&L are shared. */
+  var LOOKS = { mountain: 'Swarm', vortex: 'VortexLook', aurora: 'AuroraLook' };
+  var currentLook = document.documentElement.getAttribute('data-look') || 'mountain';
+  if (!LOOKS[currentLook]) currentLook = 'mountain';
+  function makeLook(look) {
+    var old = $('swarm');
+    if (swarm && swarm.destroy) swarm.destroy();
+    var fresh = old.cloneNode(false);           /* drops the old renderer's listeners and 2D context */
+    fresh.classList.remove('overlay3d');
+    old.parentNode.replaceChild(fresh, old);
+    var Ctor = window[LOOKS[look]] || window.Swarm;
+    var r;
+    try { r = new Ctor(fresh); } catch (e) { if (window.console) console.warn('Look "' + look + '" failed, using Mountain:', e.message); r = new window.Swarm(fresh); }
+    return r;
+  }
+  function setLook(look, remember) {
+    if (!LOOKS[look]) look = 'mountain';
+    var changed = look !== currentLook;
+    currentLook = look;
+    document.documentElement.setAttribute('data-look', look);
+    if (remember !== false) { try { localStorage.setItem('cm.look', look); } catch (e) { /* private mode */ } }
+    try {
+      var u = new URL(location.href);
+      if (look === 'mountain') u.searchParams.delete('look'); else u.searchParams.set('look', look);
+      history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    } catch (e) { /* file:// */ }
+    document.querySelectorAll('#lookSw button').forEach(function (b) {
+      var on = b.getAttribute('data-look') === look;
+      b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    if (changed && swarm) { swarm = makeLook(look); hudLast = {}; if (captureMode) frame(performance.now()); }
+  }
+  function wireLooks() {
+    document.querySelectorAll('#lookSw button').forEach(function (b) {
+      b.addEventListener('click', function () { setLook(b.getAttribute('data-look')); });
+    });
+    setLook(currentLook, /[?&]look=/.test(location.search));
+  }
+
   function wire() {
     chartG = new ChartPane($('c-gold'), $('tip-gold'));
     chartN = new ChartPane($('c-nasdaq'), $('tip-nasdaq'));
-    swarm = new Swarm($('swarm'));
+    swarm = makeLook(currentLook);
+    wireLooks();
     watcher = new VSAWatcher({ tfs: TFS });
     watcher.subscribe(onFinding);
     chartG.setVsa(function () { return watcher.findings('gold'); });
@@ -834,6 +875,8 @@
         return virtualNow;
       },
       counts: function () { return swarm.counts || null; },
+      look: function () { return currentLook; },
+      setLook: function (l) { setLook(l); return currentLook; },
       state: function () {
         return {
           i: replay.i,

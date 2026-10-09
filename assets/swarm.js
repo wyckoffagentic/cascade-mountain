@@ -231,7 +231,7 @@
   var COMP_FS = [
     'precision highp float; varying vec2 vU;',
     'uniform sampler2D uS, uB0, uB1, uB2, uB3; uniform vec2 uRes; uniform float uTime, uExpo, uFlash, uGrain, uHy, uBloom, uVig, uAspect;',
-    'uniform vec3 uFlashCol; uniform vec2 uCore;',
+    'uniform vec3 uFlashCol; uniform vec2 uCore; uniform float uArc; uniform float uLand;',
     HASH,
     'float hh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
     'vec3 aces(vec3 x){ return clamp((x*(2.51*x + 0.03)) / (x*(2.43*x + 0.59) + 0.14), 0.0, 1.0); }',
@@ -256,9 +256,46 @@
     '  float snow = smoothstep(m - cap - aa*1.2, m - cap + aa*1.2, uv.y);',
     '  vec3 r = rock * (0.78 + 0.4*lit);',
     '  vec3 sn = mix(vec3(0.22, 0.29, 0.37), vec3(0.88, 0.93, 0.97), lit) * snowK;',
+    '  sn = mix(sn, sn * vec3(1.25, 0.86, 0.72) + vec3(0.10, 0.03, 0.0) * lit, uArc * 0.75);',
     '  vec3 c = mix(r, sn, snow);',
     '  c = mix(c, vec3(0.046, 0.078, 0.100), haze * (0.45 + 0.55*smoothstep(m, uHy, uv.y)));',
     '  return mix(col, c, a);',
+    '}',
+    /* conifers: soft filled silhouettes, one tree per cell (checked with its neighbours so crowns overlap);
+       stepped bough tiers, a slight sway that bends the crown, snow dusting on the upper edge of each tier */
+    'float pineRow(float x, float y, float base, float dens, float hmin, float hmax, float seed, float sway, float aa, out float snow){',
+    '  float cov = 0.0; snow = 0.0;',
+    '  float ci = floor(x * dens);',
+    '  for (int j = -1; j <= 1; j++) {',
+    '    float c = ci + float(j);',
+    '    float r1 = h1(c * 7.13 + seed), r2 = h1(c * 3.71 + seed * 1.7), r3 = h1(c * 5.31 + seed * 2.9);',
+    '    if (r3 < 0.1) continue;',
+    '    float th = mix(hmin, hmax, r1 * r1);',
+    '    float tx = (c + 0.5 + (r2 - 0.5) * 0.8) / dens;',
+    '    float ty = (y - base) / th;',
+    '    if (ty < -0.02 || ty > 1.0) continue;',
+    '    float sw = sway * sin(uTime * (0.9 + 2.6 * uArc) + c * 1.7 + seed) * (0.6 + r2);',
+    '    float dx = x - tx - sw * ty * ty * th;',
+    '    float tiers = 5.0 + floor(r1 * 3.0);',
+    '    float ft = fract(ty * tiers - 0.15);',
+    '    float hw = th * 0.30 * (1.0 - ty) * (0.58 + 0.42 * (1.0 - ft)) + th * 0.01;',
+    '    hw = max(hw, ty < 0.07 ? th * 0.035 : 0.0);',
+    '    float a = smoothstep(hw + aa, hw - aa, abs(dx));',
+    '    if (a > cov) { cov = a; snow = a * pow(1.0 - ft, 5.0) * smoothstep(0.25, 0.95, abs(dx) / max(hw, 1e-4)) * step(0.1, ty); }',
+    '  }',
+    '  return cov;',
+    '}',
+    /* drifting snow in the air: wind and fall speed (and count) rise with the intensity arc */
+    'float snowfall(vec2 uv, float sc, float seed){',
+    '  vec2 p = uv * vec2(uAspect, 1.0) * sc;',
+    '  p += vec2(-uTime * (0.08 + 1.6 * uArc) * sc * 0.25, uTime * (0.10 + 0.35 * uArc) * sc * 0.25);',
+    '  p.x += sin(p.y * 0.7 + seed) * 0.6;',
+    '  vec2 c = floor(p), f = fract(p);',
+    '  float r = h1(dot(c, vec2(17.1, 113.7)) + seed);',
+    '  if (r > 0.35 + 0.4 * uArc) return 0.0;',
+    '  vec2 q = vec2(h1(r * 91.3), h1(r * 47.9)) * 0.8 + 0.1;',
+    '  float d = length(f - q);',
+    '  return smoothstep(0.09, 0.0, d);',
     '}',
     'void main(){',
     '  vec2 uv = vU;',
@@ -271,7 +308,7 @@
     '  vec3 col = sky;',
     /* three snow-capped ranges: far (hazed, light), middle, near (dark slate, crisp caps) */
     /* ranges only below the tallest possible summit (keeps the sky pass cheap) */
-    '  if (uv.y < uHy + 0.29) {',
+    '  if (uLand > 0.5 && uv.y < uHy + 0.29) {',
     '    float aa = 1.2 / uRes.y;',
     '    if (uv.y > uHy) {',
     '    col = range(col, uv, x, 0.55, 0.61, 2.0, 0.018, vec3(0.040, 0.062, 0.080), 0.5, 0.064, 0.6, aa);',
@@ -284,6 +321,19 @@
     '    vec3 bl2 = texture2D(uB2, uv).rgb;',
     '    if (uv.y < m1) col += bl2 * rim * 0.4;',
     '  }',
+    /* pine rows along the shore: far (light, hazy), mid, near (dark slate with snow; kept to the sides so the centre stays open) */
+    '  if (uLand > 0.5 && abs(uv.y - uHy) < 0.12) {',
+    '    float aa2 = 1.3 / uRes.y, sn1, sn2;',
+    '    float yy = uv.y >= uHy ? uv.y : uHy + (uHy - uv.y) * 1.1;',
+    '    float swy = 0.05 + 0.22 * uArc;',
+    '    float c1 = pineRow(x, yy, uHy, 34.0, 0.022, 0.042, 3.1, swy * 0.5, aa2, sn1);',
+    '    float c2 = pineRow(x, yy, uHy, 19.0, 0.035, 0.065, 7.7, swy * 0.8, aa2, sn2);',
+    '    vec3 t1 = vec3(0.10, 0.14, 0.17), t2 = vec3(0.045, 0.068, 0.085);',
+    '    vec3 tc = col;',
+    '    tc = mix(tc, t1 + vec3(0.12, 0.15, 0.17) * sn1 * 0.5, c1 * 0.8);',
+    '    tc = mix(tc, t2 + vec3(0.30, 0.36, 0.42) * sn2 * 0.6, c2 * 0.92);',
+    '    col = uv.y >= uHy ? tc : mix(col, tc * 0.6, 0.7);',
+    '  }',
     /* still water below the horizon: reflected, blurred light of the scene */
     '  if (uv.y < uHy) {',
     '    float dd = uHy - uv.y;',
@@ -292,6 +342,27 @@
     '    col = mix(col, vec3(0.006, 0.012, 0.018), 0.6);',
     '    col += refl * 0.30 * exp(-dd * 5.0);',
     '  }',
+    /* foreground: two rows of tall pines on snowbanks at the sides (centre left open for the orbit and its reflection) */
+    '  float sideX = abs(uv.x - 0.5) * 2.0;',
+    '  if (uLand > 0.5 && uv.y < uHy + 0.36 && sideX > 0.35) {',
+    '    float aa3 = 1.4 / uRes.y, sn3, sn4, swy2 = 0.05 + 0.22 * uArc;',
+    '    float bank3 = uHy - 0.055 + 0.012 * sin(x * 9.0 + 1.0), bank4 = uHy - 0.12 + 0.02 * sin(x * 5.0 + 2.0);',
+    '    float s3 = smoothstep(0.35, 0.6, sideX), s4 = smoothstep(0.55, 0.8, sideX);',
+    '    float c3 = pineRow(x, uv.y, bank3, 10.0, 0.12, 0.22, 11.3, swy2, aa3, sn3) * s3;',
+    '    float c4 = pineRow(x, uv.y, bank4, 5.0, 0.24, 0.42, 19.7, swy2 * 1.2, aa3, sn4) * s4;',
+    '    float b3 = smoothstep(bank3 + aa3, bank3 - aa3, uv.y) * s3, b4 = smoothstep(bank4 + aa3, bank4 - aa3, uv.y) * s4;',
+    '    float lip3 = exp(-max(bank3 - uv.y, 0.0) * 90.0) * b3, lip4 = exp(-max(bank4 - uv.y, 0.0) * 60.0) * b4;',
+    '    vec3 glowC = vec3(0.20, 0.08, 0.03) * uArc;',
+    /* valley mist behind the foreground trunks so the silhouettes read */
+    '    col += (vec3(0.05, 0.085, 0.11) + glowC * 0.4) * exp(-abs(uv.y - bank3 - 0.03) * 18.0) * s3 * 0.9;',
+    '    vec3 bl3 = texture2D(uB3, uv).rgb;',
+    '    col = mix(col, vec3(0.085, 0.11, 0.135) + vec3(0.30, 0.36, 0.42) * lip3 + glowC * lip3, b3 * 0.97);',
+    '    col = mix(col, vec3(0.030, 0.046, 0.060) + (vec3(0.62, 0.70, 0.78) + glowC) * sn3 * 0.7 + bl3 * 0.25, c3);',
+    '    col = mix(col, vec3(0.06, 0.08, 0.10) + vec3(0.34, 0.40, 0.47) * lip4 + glowC * lip4, b4);',
+    '    col = mix(col, vec3(0.016, 0.026, 0.036) + (vec3(0.70, 0.78, 0.86) + glowC) * sn4 * 0.8 + bl3 * 0.18, c4);',
+    '  }',
+    '  float flakes = snowfall(uv, 26.0, 1.3) * 0.55 + snowfall(uv, 14.0, 4.1) * 0.85;',
+    '  col += vec3(0.80, 0.88, 0.95) * flakes * (0.10 + 0.22 * uArc) * uLand;',
     '  vec3 sc = texture2D(uS, uv).rgb;',
     '  vec3 bloom = texture2D(uB0, uv).rgb*0.55 + texture2D(uB1, uv).rgb*0.75 + texture2D(uB2, uv).rgb*0.95 + texture2D(uB3, uv).rgb*1.15;',
     '  vec2 fd = (uv - uCore) * vec2(uAspect, 1.0);',
@@ -355,7 +426,7 @@
     this.pBright = program(gl, QVS, BRIGHT_FS);
     this.pDown = program(gl, QVS, DOWN_FS);
     this.pBlur = program(gl, QVS, BLUR_FS);
-    this.pComp = program(gl, QVS, COMP_FS);
+    this.pComp = program(gl, QVS, (opts && opts.compFS) || COMP_FS);
     this.quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -504,6 +575,10 @@
       gl.drawArrays(gl.POINTS, 0, nDyn);
       gl.disableVertexAttribArray(l1); gl.disableVertexAttribArray(l2); gl.disableVertexAttribArray(l3); gl.disableVertexAttribArray(l4);
     }
+    this._post(W, H, post);
+  };
+  HQ.prototype._post = function (W, H, post) {
+    var gl = this.gl, R = this.rts;
     gl.disable(gl.BLEND);
     /* 4. bloom: bright pass -> downsample chain -> separable gaussian per level */
     var lv = R.lv;
@@ -547,8 +622,64 @@
     gl.uniform3fv(C.u.uFlashCol, post.flashCol); gl.uniform2f(C.u.uCore, post.core[0], post.core[1]);
     gl.uniform1f(C.u.uGrain, post.grain); gl.uniform1f(C.u.uHy, post.hy); gl.uniform1f(C.u.uBloom, post.bloom);
     gl.uniform1f(C.u.uVig, post.vig); gl.uniform1f(C.u.uAspect, W / H);
+    if (C.u.uArc != null) gl.uniform1f(C.u.uArc, post.arc || 0);
+    if (C.u.uLand != null) gl.uniform1f(C.u.uLand, post.land == null ? 1 : post.land);
+    if (post.extra) post.extra(gl, C.u);
     this._quadDraw(C);
     gl.activeTexture(gl.TEXTURE0);
+  };
+
+  /* intensity arc target: confirming / armed ramp, in trade high and scaled by weakness energy */
+  function arcTarget(o) {
+    if (o.mergeT) return 0.8 + 0.2 * (o.energyT || 0);
+    var st = o.step | 0;
+    return st >= 6 ? 0.6 : st >= 3 ? 0.2 + 0.1 * (st - 3) : st > 0 ? 0.08 * st : 0;
+  }
+  /* point-only pass used by the alternate looks: trail photons -> acc, crisp photons -> scene, then bloom + composite */
+  HQ.prototype._pts = function (buf, data, n, V, gain) {
+    if (n <= 0) return;
+    var gl = this.gl, D = this.pD, du = D.u;
+    gl.useProgram(D.p);
+    gl.uniformMatrix3fv(du.uM, false, V.m);
+    gl.uniform1f(du.uD, V.D); gl.uniform1f(du.uF, V.F); gl.uniform1f(du.uR, V.R); gl.uniform1f(du.uFocus, V.D);
+    gl.uniform2f(du.uRes, V.w, V.h); gl.uniform2f(du.uOff, V.ox, V.oy); gl.uniform1f(du.uDpr, V.dpr); gl.uniform1f(du.uGain, gain || 1);
+    gl.uniform1f(du.uMaxPt, Math.min(this.maxPt, 120 * V.dpr));
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, n * 10), gl.DYNAMIC_DRAW);
+    var l1 = gl.getAttribLocation(D.p, 'aP'), l2 = gl.getAttribLocation(D.p, 'aCol'), l3 = gl.getAttribLocation(D.p, 'aS'), l4 = gl.getAttribLocation(D.p, 'aO');
+    gl.enableVertexAttribArray(l1); gl.enableVertexAttribArray(l2); gl.enableVertexAttribArray(l3); gl.enableVertexAttribArray(l4);
+    gl.vertexAttribPointer(l1, 3, gl.FLOAT, false, 40, 0);
+    gl.vertexAttribPointer(l2, 4, gl.FLOAT, false, 40, 12);
+    gl.vertexAttribPointer(l3, 1, gl.FLOAT, false, 40, 28);
+    gl.vertexAttribPointer(l4, 2, gl.FLOAT, false, 40, 32);
+    gl.drawArrays(gl.POINTS, 0, n);
+    gl.disableVertexAttribArray(l1); gl.disableVertexAttribArray(l2); gl.disableVertexAttribArray(l3); gl.disableVertexAttribArray(l4);
+  };
+  HQ.prototype.render2 = function (V, dT, nT, dC, nC, post) {
+    var gl = this.gl, W = Math.max(2, Math.round(V.w * V.dpr)), H = Math.max(2, Math.round(V.h * V.dpr));
+    this._ensure(W, H);
+    var R = this.rts;
+    if (!this.cbuf) this.cbuf = gl.createBuffer();
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, R.acc.f);
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(this.pFade.p);
+    gl.blendEquation(gl.FUNC_ADD);
+    gl.blendFunc(gl.ZERO, gl.SRC_ALPHA);
+    gl.uniform1f(this.pFade.u.uK, post.keep);
+    this._quadDraw(this.pFade);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    this._pts(this.dbuf, dT, nT, V, post.gain);
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, R.scene.f);
+    gl.useProgram(this.pCopy.p);
+    this._tex(this.pCopy, 'uT', 0, R.acc.t);
+    this._quadDraw(this.pCopy);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    this._pts(this.cbuf, dC, nC, V, post.gain);
+    this._post(W, H, post);
   };
 
   /* ---------------- overlay helpers ---------------- */
@@ -594,7 +725,7 @@
     this.flash = null; this.flashT = 0; this.flashCol = SIGNAL;
     this.shock = []; this.ripples = []; this.glyphs = [];
     this.bristle = 0; this.bristleT = 0;
-    this.mergeT = 0; this.sMerge = new Spring(0, 2.6);
+    this.mergeT = 0; this.sMerge = new Spring(0, 2.6); this.sArc = new Spring(0, 3);
     this.sFlat = new Spring(0, 2.4);
     this.sStep = new Spring(0, 3.2);
     this.sEnergy = new Spring(0, 2.2);
@@ -621,6 +752,12 @@
   }
   Swarm.TF_COLORS = TFC; Swarm.STEP_ORBIT = STEP_ORBIT; Swarm.STEP_RING = STEP_RING; Swarm.SIGNAL = SIGNAL; Swarm.PEARL = PEARL;
 
+  /* release the GL context and the stage canvas when the look switcher swaps renderers */
+  Swarm.prototype.destroy = function () {
+    this.dead = true;
+    try { var ext = this.hq && this.hq.gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext(); } catch (e) { /* already gone */ }
+    if (this.glCanvas && this.glCanvas.parentNode) this.glCanvas.parentNode.removeChild(this.glCanvas);
+  };
   Swarm.prototype._initInput = function () {
     var c = this.canvas, cam = this.cam, self = this, ptrs = {}, last = null, pinch = 0;
     c.style.touchAction = 'pan-y';
@@ -873,6 +1010,12 @@
     var sv = clamp(this.sStep.step(this.step, dt), 0, 7);
     var mE = clamp(this.sMerge.step(this.mergeT, dt, this.mergeT > this.sMerge.x ? (this.boost ? 6.5 : 3.4) : 2.4), 0, 1);
     var E = red ? 0 : clamp(this.sEnergy.step(this.energyT, dt), 0, 1);
+    /* intensity arc (shared by all looks): builds through confirming / trigger armed, peaks at fire, stays high for the
+       whole trade (scaled by weakness energy), unwinds at exit or invalidation */
+    var arc = clamp(this.sArc.step(arcTarget(this), dt, arcTarget(this) > this.sArc.x ? 3.2 : 1.3), 0, 1);
+    if (red) { this.sArc.snap(arcTarget(this)); arc = this.sArc.x; }
+    E = Math.max(E, arc);
+    var tradePulse = red ? 0.5 * arc * this.mergeT : this.mergeT * arc * Math.pow(0.5 + 0.5 * Math.sin(T * 4.6), 2);
     this.bristle += (this.bristleT - this.bristle) * Math.min(1, dt * (red ? 10 : 4));
     if (this.snapT > 0) this.snapT = Math.max(0, this.snapT - dt);
     var tight = sv / 7;
@@ -937,7 +1080,7 @@
       this.laneOm[L] = red ? 0 : om2;
       this.lanePh[L] += red ? 0 : om2 * dt;
     }
-    var spin = Math.min(2.4, lerp(0.35, 1.6, tight) * (1 + 0.9 * E));
+    var spin = Math.min(2.4 + 1.4 * arc * this.mergeT, lerp(0.35, 1.6, tight) * (1 + 0.9 * E) * (1 + 0.7 * arc * this.mergeT));
     this.ringOm = red ? [0, 0, 0] : [spin, -spin * 0.82, spin * 0.55];
     for (var rr = 0; rr < 3; rr++) this.ringRot[rr] += this.ringOm[rr] * dt;
     this._haloRot += red ? 0 : dt * 0.05;
@@ -1001,7 +1144,7 @@
       uRCol: { t: 3, v: ringColA }, uRA: ra * 0.75,
       uSA: { t: 3, v: sA }, uSB: { t: 3, v: sB }, uSC: { t: 3, v: sC }, uSCol: { t: 3, v: sCol }, uSPh: { t: 1, v: this.streamPh }, uSDen: { t: 1, v: this.streamDen }, uSSpd: { t: 1, v: sSpd },
       uHR: haloR, uHRot: this._haloRot, uHA: hA, uAmber: amberShare, uCrack: this.crack, uHCol: { t: 3, v: c01(haloCol) }, uEye: { t: 3, v: ed }, uWarn: { t: 3, v: c01(WARN) },
-      uCR: coreR, uCPulse: cp + flashK * 0.5, uCRot: this._coreRot, uCA: (1 + 0.4 * E + flashK * 1.6) * (1 - 0.25 * this.dim), uCCol: { t: 3, v: c01(coreCol) }
+      uCR: coreR, uCPulse: cp + flashK * 0.5, uCRot: this._coreRot, uCA: (1 + 0.4 * E + flashK * 1.6 + 0.5 * tradePulse) * (1 - 0.25 * this.dim), uCCol: { t: 3, v: c01(coreCol) }
     };
 
     /* ---- transient photons ---- */
@@ -1117,8 +1260,8 @@
     var keep = red ? 0 : clamp(0.74 + 0.1 * E + 0.04 * tight, 0, 0.9);
     var post = {
       keep: keep, thr: 0.85, knee: 0.5, time: T,
-      expo: 1.06 + 0.04 * E, flash: flashK * (this.flash === 'entry' ? 1.4 : 1), flashCol: c01(mix(this.flashCol, WHITE, 0.5)),
-      grain: 0.018, hy: +canvas.dataset.hy || (phone ? 0.2 : 0.24), bloom: (0.55 + 0.2 * E + flashK * 0.7) * (this.ultra ? 1.25 : 1), vig: 0.55
+      arc: arc, expo: 1.06 + 0.04 * E + 0.05 * tradePulse, flash: flashK * (this.flash === 'entry' ? 1.4 : 1), flashCol: c01(mix(this.flashCol, WHITE, 0.5)),
+      grain: 0.018, hy: +canvas.dataset.hy || (phone ? 0.2 : 0.24), bloom: (0.55 + 0.2 * E + flashK * 0.7 + 0.12 * arc + 0.3 * tradePulse) * (this.ultra ? 1.25 : 1), vig: 0.55
     };
     var cpj = project(V, [0, 0, 0]); post.core = [cpj[0] / w, 1 - cpj[1] / h];
     if (!this.lost) {
@@ -1171,7 +1314,7 @@
       var mv2 = false;
       for (var ia = 0; ia < labs.length; ia++) for (var ib = ia + 1; ib < labs.length; ib++) {
         var P = labs[ia], Q = labs[ib];
-        var dx2 = (P.w + Q.w) / 2 + GAP - Math.abs(P.x - Q.x), dy2 = LH + 4 - Math.abs(P.y - Q.y);
+        var dx2 = (P.w + Q.w) / 2 + GAP - Math.abs(P.x - Q.x), dy2 = LH + 8 - Math.abs(P.y - Q.y);
         if (dx2 > 0 && dy2 > 0) {
           var sgn = P.y < Q.y || (P.y === Q.y && ia < ib) ? -1 : 1, hm = dy2 / 2 + 0.5;
           P.y = clamp(P.y + sgn * hm, 12, h - 12); Q.y = clamp(Q.y - sgn * hm, 12, h - 12); mv2 = true;
@@ -1181,10 +1324,28 @@
     }
     /* ease each label toward its target so the layout glides instead of jumping */
     var lp = this._labPos || (this._labPos = {}), lk = red ? 1 : 1 - Math.exp(-dt * 9);
+    var drawn = [];
+    for (var lq1 = 0; lq1 < labs.length; lq1++) {
+      var Lb1 = labs[lq1], pv = lp[Lb1.t];
+      if (!pv) pv = lp[Lb1.t] = { x: Lb1.x, y: Lb1.y };
+      pv.x += (Lb1.x - pv.x) * lk; pv.y += (Lb1.y - pv.y) * lk;
+      drawn.push(pv);
+    }
+    /* the eased positions can lag the targets while the swarm spins fast (in trade): separate them once more */
+    for (var it3 = 0; it3 < 12; it3++) {
+      var mv3 = false;
+      for (var ja = 0; ja < labs.length; ja++) for (var jb = ja + 1; jb < labs.length; jb++) {
+        var Pa = drawn[ja], Qb = drawn[jb];
+        var dx3 = (labs[ja].w + labs[jb].w) / 2 + GAP - Math.abs(Pa.x - Qb.x), dy3 = LH + 8 - Math.abs(Pa.y - Qb.y);
+        if (dx3 > 0 && dy3 > 0) {
+          var sg3 = Pa.y <= Qb.y ? -1 : 1, hm3 = dy3 / 2 + 0.5;
+          Pa.y = clamp(Pa.y + sg3 * hm3, 12, h - 12); Qb.y = clamp(Qb.y - sg3 * hm3, 12, h - 12); mv3 = true;
+        }
+      }
+      if (!mv3) break;
+    }
     for (var lq = 0; lq < labs.length; lq++) {
-      var Lb = labs[lq], prv = lp[Lb.t];
-      if (!prv) prv = lp[Lb.t] = { x: Lb.x, y: Lb.y };
-      prv.x += (Lb.x - prv.x) * lk; prv.y += (Lb.y - prv.y) * lk;
+      var Lb = labs[lq], prv = drawn[lq];
       var lx = prv.x, ly = prv.y;
       ctx.drawImage(shade, lx - Lb.w / 2 - 6, ly - 12, Lb.w + 12, 24);
       ctx.fillStyle = '#ffffff';
@@ -1196,4 +1357,11 @@
   };
 
   global.Swarm = Swarm;
+  /* shared kit for the alternate looks (assets/look-*.js) */
+  global.SwarmKit = {
+    HQ: HQ, Spring: Spring, COMP_FS: COMP_FS, destroy: Swarm.prototype.destroy, program: program, QVS: QVS, HASH: HASH, rng: rng, fib: fib, lerp: lerp, mix: mix, clamp: clamp, c01: c01,
+    project: project, shadeSprite: shadeSprite, arcTarget: arcTarget, initInput: Swarm.prototype._initInput, orbitBy: Swarm.prototype.orbitBy,
+    TFS: TFS, TFC: TFC, STAGE: STAGE, SIGNAL: SIGNAL, SIGNAL_L: SIGNAL_L, PEARL: PEARL, WARN: WARN, WHITE: WHITE, RED: RED, GOLD: GOLD,
+    STEP_ORBIT: STEP_ORBIT, STEP_RING: STEP_RING
+  };
 })(window);

@@ -18,7 +18,8 @@ No build step and no CDN: fonts (Manrope, Geist Mono, SIL OFL 1.1) are vendored 
 |---|---|
 | (none) | Default "boosted" look: on the phone the orbit grows by up to 22% as the rings tighten (full size from step 6, normal size when scanning); the overseer shell is denser (×1.6 photons desktop, ×2 phone) and 25% brighter; the trade-fire shockwave is denser, larger, brighter and lasts 1.9 s (was 1.5 s) with a second inner shell; the green settle runs on a faster spring (6.5 vs 3.4). |
 | `?boost=0` | The earlier look (option A in `shots/c-live/compare-*.mp4`). |
-| `?nogl` | CPU fallback renderer. |
+| `?look=mountain` / `vortex` / `aurora` | Stage theme (also the LOOK switcher in the header; the choice is remembered in `localStorage` as `cm.look`). Mountain is the default. |
+| `?nogl` | CPU fallback renderer (the same simple orbit for every look; the chrome theme still follows the look). |
 | `?capture` | Fixed-timestep frame loop driven by `__DMF.tick(n, ms)`, for deterministic frame capture. |
 
 ## Risk rules
@@ -93,3 +94,18 @@ Palette:
 | Overseer pearl | #edf6ff |
 | HLC up | #d9eef8 |
 | HLC down | #ff9c86 |
+
+## Looks (LOOK switcher)
+
+Three stage themes over identical logic: the engine, sim, VSA watcher, risk and P&L are shared, and only the stage renderer and the chrome theme change. Switching is live (the old renderer releases its GL context and a fresh one is built).
+
+- **Mountain** (`assets/swarm.js`, default): the orbit swarm over snow-capped peaks, a still lake, and layered conifers (a hazy far treeline, a mid row, and tall snow-dusted foreground pines on snowbanks at the sides, keeping the centre clear for the orbit). Drifting snow in the air.
+- **Vortex** (`assets/look-vortex.js`): five timeframe tiers as a vertical funnel (4H wide at the top, 5m at the core). Loose tiers tilt and precess, with a scan-head knot running round each one. Aligned tiers level, lock and pour photon streams down. VSA is a separate advisory ring.
+- **Aurora** (`assets/look-aurora.js`): one aurora curtain per timeframe (4H highest, then 2H, 30m, 15m, 5m, in the legend colours) over stars, hills and a lake that reflects them. VSA is a pearl photon ring lying on the lake.
+
+**Intensity arc (all looks):** intensity builds through confirming and trigger armed, peaks at fire, and stays high for the whole trade, scaled by weakness energy. It unwinds at exit or invalidation (`arcTarget` in `swarm.js`).
+- Mountain: a faster, brighter swarm, a pulsing core and bloom, snow whipping up, pines swaying harder, and an alpenglow surge on the peaks.
+- Vortex: faster rotation, a rising green photon column, and pulse waves running down the rings.
+- Aurora: brighter, quicker curtains, a gentle green surge at fire, then a sustained green cyclone round the decision corona.
+
+Under reduced motion every look shows a static frame at the same intensity.
